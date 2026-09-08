@@ -6,20 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css" />
+  <link rel="stylesheet" href="../base/basemap.css?v=20260908" />
 </head>
 <body>
-  <div id="map" class="behoerde-map"></div>
+  <div id="map" class="fva-map"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js"></script>
+  <script src="../base/basemap.js?v=20260908"></script>
   <script>
     // Reine Grundkarte – keine fachspezifischen Layer/Popups.
     // Dient als Referenz/Testfall für die gemeinsame Basemap sowie als
     // Ausgangspunkt beim Anlegen einer neuen karte_*.html.
-    BehoerdeMap.create({
+    FVAMap.create({
       container: "map",
-      // center/zoom oder bounds je nach Kartentyp anpassen
+      ariaLabel: "Referenzkarte Baden-Württemberg ohne Fachdaten",
+      // Kartenausschnitt (ganz BW) kommt aus der Basemap – hier nichts setzen.
+      // Nur echte Ausnahmen geben stattdessen center/zoom an.
     });
   </script>
 </body>

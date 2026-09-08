@@ -6,66 +6,53 @@
   <title>Wasserrückhalt im Wald – Karte</title>
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css" />
+  <link rel="stylesheet" href="../base/basemap.css?v=20260908" />
 </head>
 <body>
   <div id="map"></div>
-  <div id="hoverTooltip" class="fva-tooltip"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js"></script>
+  <script src="../base/basemap.js?v=20260908"></script>
   <script>
     /**
      * WRW – Wasserrückhalt im Wald
      * -----------------------------------------------------------------
-     * Umgestellt auf die gemeinsame Basemap. Echte Geodaten (44
-     * Landkreis-Flächen, 27 Maßnahmenstandorte), extrahiert aus der
-     * ursprünglichen Karte in:
+     * 44 Landkreis-Flächen (eingefärbt nach Hauptzielsetzung) und 27
+     * Maßnahmenstandorte mit Klick-Popup (Hauptzielsetzung, Maßnahmen, Bild).
+     * Geodaten:
      *   data/wrw_landkreise.geojson
      *   data/wrw_standorte.geojson
-     *   data/wrw_meta.json  (bounds, Legenden-Titel/-Inhalt)
-     *
-     * Gegenüber dem Original geändert:
-     *  - Karten-Init läuft über BehoerdeMap.create() (gemeinsame Basemap,
-     *    Controls, Style).
-     *  - Legende läuft über BehoerdeMap.createLegendControl() (gleiche
-     *    Bausteine wie bei allen anderen Karten, weiterhin einklappbar).
-     *  - Popup nutzt die gemeinsame Popup-Hülle (fva-popup__…) statt der
-     *    seiteneigenen .popup-card-Klassen.
-     *  - Bild-Lightbox läuft über die gemeinsame BehoerdeMap.initImageLightbox()
-     *    statt einer eigenen Implementierung.
-     * Unverändert: alle fachlichen Daten, Hover-Verhalten (feature-state),
-     * Klick-Popup-Inhalte (Hauptzielsetzung, Maßnahmen, Bild).
+     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende steht in
+     * LEGEND_ITEMS.
      * -----------------------------------------------------------------
      */
 
     const LANDKREISE_URL = "./data/wrw_landkreise.geojson";
     const STANDORTE_URL = "./data/wrw_standorte.geojson";
-    const META_URL = "./data/wrw_meta.json";
 
-    BehoerdeMap.initImageLightbox();
+    // Legende im Standardformat (Farbe + Beschriftung). Farben entsprechen
+    // den fillColor-Werten der Landkreis-Flächen (siehe wrw_landkreise.geojson).
+    const LEGEND_TITLE = "Hauptzielsetzung";
+    const LEGEND_ITEMS = [
+      { color: "#FFAEB9", label: "Bestandesvitalität" },
+      { color: "#87CEEB", label: "Erosionsschutz" },
+      { color: "#90EE90", label: "Grundwasserneubildung" },
+      { color: "#FFE7BA", label: "Hochwasserschutz" },
+      { color: "#FFA07A", label: "Ökologie/Feuchthabitate" },
+      { color: "#BEBEBE", label: "Kein Pilotprojekt" },
+    ];
 
-    fetch(META_URL)
-      .then((res) => res.json())
-      .then((meta) => initMap(meta))
-      .catch((err) => {
-        console.error("[WRW] Konnte Metadaten nicht laden:", err);
-        initMap({ bounds: null, legend_title: "Legende", legend_items_html: "" });
-      });
+    FVAMap.initImageLightbox();
+    initMap();
 
-    function initMap(meta) {
-      const map = BehoerdeMap.create({
+    function initMap() {
+      const map = FVAMap.create({
         container: "map",
-        bounds: meta.bounds || undefined,
-        fitBoundsOptions: { padding: 20 },
+        // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+        ariaLabel: "Wasserrückhalt im Wald – Landkreise und Maßnahmenstandorte",
       });
 
-      const tooltip = document.getElementById("hoverTooltip");
-      const hoveredId = { landkreise: null, standorte: null };
-
-      function setHover(source, id, state) {
-        map.setFeatureState({ source, id }, { hover: state });
-      }
+      const tooltip = FVAMap.createHoverTooltip(map);
 
       map.on("load", () => {
         map.addSource("landkreise", { type: "geojson", data: LANDKREISE_URL, generateId: true });
@@ -118,92 +105,66 @@
           },
         });
 
-        // -- Landkreise: Hover-Hervorhebung + Tooltip ----------------------
+        // Hover-Hervorhebung (feature-state) + Cursor für beide Layer.
+        FVAMap.enableHoverState(map, "landkreise-fill", "landkreise");
+        FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
+
+        // -- Landkreise: Hover-Tooltip ------------------------------------
         map.on("mousemove", "landkreise-fill", (e) => {
-          map.getCanvas().style.cursor = "pointer";
-          const f = e.features[0];
-
-          if (hoveredId.landkreise !== null && hoveredId.landkreise !== f.id) {
-            setHover("landkreise", hoveredId.landkreise, false);
-          }
-          hoveredId.landkreise = f.id;
-          setHover("landkreise", f.id, true);
-
-          tooltip.style.display = "block";
-          tooltip.style.left = e.point.x + "px";
-          tooltip.style.top = e.point.y + "px";
-          tooltip.innerHTML =
-            `<div class="tt-title" style="font-weight:700;margin-bottom:2px;">${f.properties.label}</div>` +
-            `<div>Hauptzielsetzung: <b>${f.properties.hauptzielsetzung}</b></div>` +
-            `<div>Projektgemeinde: <b>${f.properties.projektgemeinde}</b></div>`;
+          const p = e.features[0].properties;
+          tooltip.show(
+            `<div class="fva-tooltip__title">${p.label}</div>` +
+            `<div>Hauptzielsetzung: <b>${p.hauptzielsetzung}</b></div>` +
+            `<div>Projektgemeinde: <b>${p.projektgemeinde}</b></div>`,
+            e.point,
+            { html: true }
+          );
         });
+        map.on("mouseleave", "landkreise-fill", () => tooltip.hide());
 
-        map.on("mouseleave", "landkreise-fill", () => {
-          map.getCanvas().style.cursor = "";
-          tooltip.style.display = "none";
-          if (hoveredId.landkreise !== null) {
-            setHover("landkreise", hoveredId.landkreise, false);
-            hoveredId.landkreise = null;
-          }
-        });
-
-        // -- Standorte: Hover-Tooltip (Name) --------------------------------
+        // -- Standorte: Hover-Tooltip (Name) -----------------------------
         map.on("mousemove", "standorte-punkte", (e) => {
-          map.getCanvas().style.cursor = "pointer";
-          const f = e.features[0];
-
-          if (hoveredId.standorte !== null && hoveredId.standorte !== f.id) {
-            setHover("standorte", hoveredId.standorte, false);
-          }
-          hoveredId.standorte = f.id;
-          setHover("standorte", f.id, true);
-
-          tooltip.style.display = "block";
-          tooltip.style.left = e.point.x + "px";
-          tooltip.style.top = e.point.y + "px";
-          tooltip.innerHTML = `<div style="font-weight:700;">${f.properties.label}</div>`;
+          tooltip.show(
+            `<div class="fva-tooltip__title">${e.features[0].properties.label}</div>`,
+            e.point,
+            { html: true }
+          );
         });
-
-        map.on("mouseleave", "standorte-punkte", () => {
-          map.getCanvas().style.cursor = "";
-          tooltip.style.display = "none";
-          if (hoveredId.standorte !== null) {
-            setHover("standorte", hoveredId.standorte, false);
-            hoveredId.standorte = null;
-          }
-        });
+        map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
 
         // -- Klick-Popup nur für Standorte ---------------------------------
         map.on("click", "standorte-punkte", (e) => {
-          const f = e.features[0];
-          BehoerdeMap.openPopup(map, e.lngLat, {
-            title: f.properties.popup_name,
-            large: true,
-            render: (body) => renderStandortPopup(body, f.properties),
-          });
+          openStandortPopup(map, e.lngLat, e.features[0].properties);
         });
 
-        // -- Legende --------------------------------------------------------
-        map.addControl(
-          BehoerdeMap.createLegendControl({
-            title: meta.legend_title || "Legende",
-            html: meta.legend_items_html || "",
-          }),
-          "top-right"
-        );
+        // -- Legende (Standardformat, immer unten rechts) ----------------
+        FVAMap.addLegend(map, {
+          title: LEGEND_TITLE,
+          items: LEGEND_ITEMS,
+        });
       });
     }
 
-    /** Popup-Inhalt für einen Maßnahmenstandort (fachlich unverändert). */
-    function renderStandortPopup(body, props) {
+    /** Öffnet das Popup für einen Maßnahmenstandort (Hülle + Inhalt). */
+    function openStandortPopup(map, lngLat, props) {
+      const root = document.createElement("div");
+      root.className = "fva-popup fva-popup--large";
+
+      const header = document.createElement("div");
+      header.className = "fva-popup__header";
+      header.textContent = props.popup_name;
+      root.appendChild(header);
+
+      const body = document.createElement("div");
+      body.className = "fva-popup__body";
+      root.appendChild(body);
+
       let massnahmenListe = props.popup_massnahmen;
       if (typeof massnahmenListe === "string") {
         try { massnahmenListe = JSON.parse(massnahmenListe); }
         catch (err) { massnahmenListe = []; }
       }
       if (!Array.isArray(massnahmenListe)) massnahmenListe = [];
-
-      body.innerHTML = "";
 
       const rowHz = document.createElement("div");
       rowHz.className = "fva-popup__row";
@@ -239,13 +200,29 @@
         body.appendChild(wrap);
       }
 
+      let popupImg = null;
       if (props.popup_img) {
-        const img = document.createElement("img");
-        img.className = "fva-popup__img";
-        img.src = props.popup_img;
-        img.setAttribute("data-full", props.popup_img);
-        img.alt = props.popup_name || "";
-        body.appendChild(img);
+        popupImg = document.createElement("img");
+        popupImg.className = "fva-popup__img";
+        popupImg.src = props.popup_img;
+        popupImg.setAttribute("data-full", props.popup_img);
+        popupImg.alt = props.popup_name || "";
+        body.appendChild(popupImg);
+      }
+
+      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "none" })
+        .setLngLat(lngLat)
+        .setDOMContent(root)
+        .addTo(map);
+
+      // Das Popup-Bild wird asynchron geladen; die Popup-Höhe ändert sich
+      // dadurch nachträglich. Nach dem Laden neu positionieren, damit MapLibre
+      // den Anker (oben/unten) an die endgültige Höhe anpasst – sonst klemmt
+      // das Popup am oberen iframe-Rand statt nach unten zu öffnen.
+      if (popupImg) {
+        const reposition = () => popup.setLngLat(lngLat);
+        if (popupImg.complete) requestAnimationFrame(reposition);
+        else popupImg.addEventListener("load", reposition, { once: true });
       }
     }
   </script>

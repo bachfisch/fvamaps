@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <title>DWD PHENTHAUproc – Eichenprozessionsspinner</title>
 
-<!-- Gemeinsame FVA-Basemap (siehe /fileadmin/maplibre) statt individueller CDN-Version -->
+<!-- Gemeinsame FVA-Basemap -->
 <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-<link rel="stylesheet" href="../base/basemap.css" />
+<link rel="stylesheet" href="../base/basemap.css?v=20260908" />
 <script src="../vendor/maplibre-gl.js"></script>
-<script src="../base/basemap.js"></script>
-<!-- PNG-Export ohne Canvas-Handarbeit (eigenständige Zusatzbibliothek, nicht Teil der Basemap) -->
-<script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+<script src="../base/basemap.js?v=20260908"></script>
+<!-- PNG-Export der Popup-Grafik/-Tabelle. html-to-image 1.11.13, MIT-Lizenz,
+     siehe vendor/README.md. -->
+<script src="../vendor/html-to-image.js?v=20260908"></script>
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,45 +61,39 @@
   .timeline-slider-control {
     background: rgba(255, 255, 255, 0.96);
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 7px 9px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 320px;
+    gap: 4px;
+    min-width: 232px;
   }
 
   /* top row: buttons + date */
   .tl-controls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
   .tl-btn {
-    background: #006e60;
+    background: var(--fva-green);
     border: none;
     color: #fff;
-    border-radius: 6px;
-    width: 28px;
-    height: 28px;
+    border-radius: 5px;
+    width: 22px;
+    height: 22px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 11px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     padding: 0;
   }
-  .tl-btn:hover { background: #005048; }
+  .tl-btn:hover { background: var(--fva-green-dark); }
   .tl-btn:disabled { background: #ccc; cursor: default; }
-  .tl-btn-text {
-    width: auto;
-    padding: 0 8px;
-    font-size: 11px;
-    font-family: inherit;
-  }
   #date-display {
-    font-size: 12px;
+    font-size: 11px;
     color: #444;
     font-weight: 600;
     flex: 1;
@@ -108,7 +103,7 @@
   /* slider row */
   .tl-track-wrap {
     position: relative;
-    height: 28px;
+    height: 24px;
     display: flex;
     align-items: center;
   }
@@ -118,7 +113,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 14px;
+    height: 12px;
     pointer-events: none;
   }
   .tl-year-label {
@@ -132,19 +127,19 @@
   /* year dividers on the track */
   .tl-year-divider {
     position: absolute;
-    top: 14px;
+    top: 12px;
     width: 1px;
-    height: 14px;
+    height: 12px;
     background: #bbb;
     pointer-events: none;
   }
   #timeline-slider {
     position: absolute;
-    top: 14px;
+    top: 12px;
     left: 0;
     right: 0;
     width: 100%;
-    height: 14px;
+    height: 12px;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
@@ -153,11 +148,11 @@
   }
   .tl-track {
     position: absolute;
-    top: 14px;
+    top: 12px;
     left: 0;
     right: 0;
     height: 6px;
-    margin-top: 4px;
+    margin-top: 3px;
     border-radius: 3px;
     background: #ddd;
     pointer-events: none;
@@ -167,28 +162,24 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #006e60;
+    background: var(--fva-green);
     border: 2px solid #fff;
-    box-shadow: 0 0 0 1px #006e60;
+    box-shadow: 0 0 0 1px var(--fva-green);
     margin-top: -4px;
   }
   #timeline-slider::-moz-range-thumb {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #006e60;
+    background: var(--fva-green);
     border: 2px solid #fff;
-    box-shadow: 0 0 0 1px #006e60;
+    box-shadow: 0 0 0 1px var(--fva-green);
   }
   #timeline-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; }
   #timeline-slider::-moz-range-track { height: 6px; border-radius: 3px; background: transparent; }
 
-  /* Legende: jetzt vollständig in basemap.css (BehoerdeMap.createLegendControl) */
-
   :fullscreen #map,
   :-webkit-full-screen #map { height: 100vh; }
-
-  /* .maplibregl-ctrl.app-ctrl { margin: 10px; } -> jetzt in basemap.css */
 
   /* ============================================================
      MODAL / POPUP
@@ -248,8 +239,8 @@
   }
   #modal-header .modal-tab:hover { color: #444; }
   #modal-header .modal-tab.active {
-    color: #006e60;
-    border-bottom-color: #006e60;
+    color: var(--fva-green);
+    border-bottom-color: var(--fva-green);
   }
 
   #modal-header-right {
@@ -269,7 +260,7 @@
     cursor: pointer;
   }
   #year-select:hover { border-color: #aaa; }
-  #year-select:focus { outline: none; border-color: #006e60; }
+  #year-select:focus { outline: none; border-color: var(--fva-green); }
   #modal-close-btn {
     background: none;
     border: none;
@@ -337,7 +328,7 @@
     width: 34px;
     height: 34px;
     border: 3px solid #e6e6e6;
-    border-top: 3px solid #006e60;
+    border-top: 3px solid var(--fva-green);
     border-radius: 50%;
     animation: spin 0.9s linear infinite;
   }
@@ -409,7 +400,7 @@
     clear: both;
   }
   #eps-table th {
-    background: #006e60;
+    background: var(--fva-green);
     color: #fff;
     padding: 7px 10px;
     text-align: left;
@@ -704,14 +695,12 @@ function buildTimelineFallback() {
 
 let TIMELINE_DATES       = buildTimelineFallback();
 let TIMELINE_TODAY_INDEX = 7;
-let ALL_TIMELINE_DATES   = null;   // full server list, stored for toggle
-let SHOW_ALL_YEARS       = false;
 
-// Returns dates filtered to the last N full years + current year
-function filterToRecentYears(dates, n = 3) {
+// Returns dates filtered to the previous year + current year
+function filterToRecentYears(dates, n = 1) {
   const today     = getToday();
   const thisYear  = new Date(today).getFullYear();
-  const firstYear = thisYear - n;                     // e.g. 2025 - 3 = 2022
+  const firstYear = thisYear - n;                     // e.g. 2026 - 1 = 2025
   const cutoff    = `${firstYear}-01-01`;              // keep from Jan 1 of that year
   return dates.filter(d => d.slice(0, 10) >= cutoff);
 }
@@ -732,10 +721,6 @@ function rebuildTimeline(dates) {
   buildYearMarkers();
   updateSliderTrackFill();
   showLayer(selectedLayerKey, todayIdx);
-
-  // Update toggle button label
-  const btn = document.getElementById('tl-allyears');
-  if (btn) btn.textContent = SHOW_ALL_YEARS ? '2 Jahre' : 'Alle Jahre';
 }
 
 
@@ -743,13 +728,12 @@ function rebuildTimeline(dates) {
 // MAP SETUP
 // ============================================================
 
-// Karten-Init über die gemeinsame Basemap (siehe base/basemap.js):
-// einheitlicher Style (Vektor-Basemap statt der bisherigen individuellen
-// OSM-HOT-Rasterkacheln), Navigation- und Fullscreen-Control, Rotation aus.
-const map = BehoerdeMap.create({
+// Karten-Init über die gemeinsame Basemap (Style, Navigation, Fullscreen,
+// Kartenausschnitt).
+const map = FVAMap.create({
   container: 'map',
-  center: [9.0, 48.65],   // MapLibre uses [lng, lat]
-  zoom: 7
+  // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+  ariaLabel: 'Eichenprozessionsspinner – Entwicklungsstadien und Regulierung (DWD PHENTHAUproc)'
 });
 
 
@@ -757,10 +741,9 @@ const map = BehoerdeMap.create({
 // WMS TILE LAYER FACTORY  (used by the map)
 // ============================================================
 
-// Builds a WMS GetMap tile URL template. MapLibre (like Mapbox GL) understands
-// the special "{bbox-epsg-3857}" token in raster source `tiles` URLs and fills
-// it in per-tile with "minx,miny,maxx,maxy" in Web Mercator — this is built
-// specifically for talking to WMS servers, so no plugin is required here either.
+// Builds a WMS GetMap tile URL template. MapLibre understands the special
+// "{bbox-epsg-3857}" token in raster source `tiles` URLs and fills it in
+// per-tile with "minx,miny,maxx,maxy" in Web Mercator.
 function buildWmsTileUrl(config, isoDateString) {
   const params = new URLSearchParams({
     SERVICE:     "WMS",
@@ -780,8 +763,7 @@ function buildWmsTileUrl(config, isoDateString) {
 }
 
 
-// LEGEND CONTROL kommt jetzt aus der gemeinsamen Basemap
-// (BehoerdeMap.createLegendControl, siehe showLayer() unten).
+// Legende: FVAMap.addLegend (siehe showLayer() unten).
 
 
 // ============================================================
@@ -844,13 +826,13 @@ function showLayer(layerKey, timelineIndex) {
     ? 'Präventiv bedeutet hier eine Behandlung vor Ausbildung größerer Brennhaar-Mengen.<br>' +
       'Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarquelle sind ganzjährig möglich.'
     : undefined;
-  activeLegend = BehoerdeMap.createLegendControl({
+  // FVAMap.addLegend erzwingt die gemeinsame Position (unten rechts).
+  activeLegend = FVAMap.addLegend(map, {
     title: layerKey,
     items: Object.values(config.legend).map(s => ({ color: s.color, label: s.label })),
     note: legendNote,
     collapsible: true,
   });
-  map.addControl(activeLegend, 'bottom-right');
 
   document.getElementById('date-display').textContent = isoDate.split('T')[0];
 }
@@ -859,15 +841,14 @@ function showLayer(layerKey, timelineIndex) {
 
 // ============================================================
 
-// stopMapPropagation() kommt jetzt aus der gemeinsamen Basemap (basemap.js)
-
 const timelineSliderControl = {
   onAdd() {
     const container = document.createElement('div');
-    container.className = 'timeline-slider-control app-ctrl';
+    // maplibregl-ctrl: stellt pointer-events:auto wieder her – sonst fallen
+    // Klicks/Drags durch das Control auf die Karte (öffnet das Klick-Popup).
+    container.className = 'maplibregl-ctrl timeline-slider-control app-ctrl';
     container.innerHTML = `
       <div class="tl-controls">
-        <button class="tl-btn tl-btn-text" id="tl-allyears" title="Alle Jahre anzeigen">Alle Jahre</button>
         <button class="tl-btn" id="tl-prev"  title="Einen Tag zurück">⏴</button>
         <button class="tl-btn" id="tl-play"  title="Abspielen">▶</button>
         <button class="tl-btn" id="tl-today" title="Heute">◎</button>
@@ -881,7 +862,7 @@ const timelineSliderControl = {
           min="0" max="${TIMELINE_DATES.length - 1}" value="${TIMELINE_TODAY_INDEX}">
       </div>
     `;
-    BehoerdeMap.stopMapPropagation(container);
+    FVAMap.stopMapPropagation(container);
     this._container = container;
     return container;
   },
@@ -937,7 +918,7 @@ function updateSliderTrackFill() {
               / (+timelineSlider.max   - +timelineSlider.min) * 100;
   const track = document.getElementById('tl-track');
   if (track) track.style.background =
-    `linear-gradient(to right, #006e60 0%, #006e60 ${pct}%, #ddd ${pct}%, #ddd 100%)`;
+    `linear-gradient(to right, var(--fva-green) 0%, var(--fva-green) ${pct}%, #ddd ${pct}%, #ddd 100%)`;
 }
 
 function setSliderIndex(idx) {
@@ -961,13 +942,6 @@ document.getElementById('tl-next').addEventListener('click', () =>
 
 document.getElementById('tl-today').addEventListener('click', () =>
   setSliderIndex(TIMELINE_TODAY_INDEX));
-
-document.getElementById('tl-allyears').addEventListener('click', () => {
-  if (!ALL_TIMELINE_DATES) return;
-  SHOW_ALL_YEARS = !SHOW_ALL_YEARS;
-  const dates = SHOW_ALL_YEARS ? ALL_TIMELINE_DATES : filterToRecentYears(ALL_TIMELINE_DATES, 2);
-  rebuildTimeline(dates);
-});
 
 let playbackInterval = null;
 
@@ -1004,8 +978,8 @@ buildYearMarkers();
 const layerSelectionControl = {
   onAdd() {
     const container = document.createElement('div');
-    container.className = 'layer-selection-control app-ctrl';
-    BehoerdeMap.stopMapPropagation(container);
+    container.className = 'maplibregl-ctrl layer-selection-control app-ctrl';
+    FVAMap.stopMapPropagation(container);
 
     container.innerHTML =
       '<strong style="display:block; margin-bottom:6px; font-size:12px">Eichenprozessionsspinner</strong>';
@@ -1451,9 +1425,9 @@ function drawChartSkeleton(dates) {
   const todayLine = todayX ? `
     <line x1="${todayX.toFixed(1)}" y1="${PADDING_TOP - 4}"
           x2="${todayX.toFixed(1)}" y2="${PADDING_TOP + CHART_HEIGHT + 4}"
-          stroke="#006e60" stroke-width="1.5" stroke-dasharray="4,3"/>
+          style="stroke:var(--fva-green)" stroke-width="1.5" stroke-dasharray="4,3"/>
     <text x="${(todayX + 3).toFixed(1)}" y="${PADDING_TOP - 18}"
-      font-size="9" fill="#006e60" font-weight="600">Heute</text>` : '';
+      font-size="9" style="fill:var(--fva-green)" font-weight="600">Heute</text>` : '';
 
   const clipId = 'clip-' + Date.now();
 
@@ -2065,16 +2039,14 @@ yearSelect.addEventListener('change', async () => {
 // ============================================================
 
 // Initial render with fallback timeline, then try to fetch real dates from server.
-// showLayer() calls map.addSource()/addLayer(), which need the style to be
-// ready first — unlike Leaflet's L.tileLayer.wms(), which could be added anytime.
+// showLayer() calls map.addSource()/addLayer(), which need the style ready first.
 map.on('load', () => {
   updateSliderTrackFill();
   showLayer(selectedLayerKey, TIMELINE_TODAY_INDEX);
 
   fetchAvailableDates().then(dates => {
     if (dates && dates.length > 1) {
-      ALL_TIMELINE_DATES = dates;
-      rebuildTimeline(filterToRecentYears(dates, 2));
+      rebuildTimeline(filterToRecentYears(dates, 1));
     }
   });
 });

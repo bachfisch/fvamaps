@@ -6,17 +6,20 @@
    ========================================================================= */
 
 :root {
-  --fva-green: #047136;
-  --fva-green-dark: #03592a;
-  --fva-text: #222222;
-  --fva-text-muted: #666666;
-  --fva-border: #e2e2e2;
-  --fva-bg: #ffffff;
-  --fva-bg-muted: #f5f5f5;
-  --fva-danger: #b3261e;
+  /* Werte aus dem FVA-Website-Theme (Bootstrap-Custom-Properties). */
+  --fva-green: #006e60;      /* --primary */
+  --fva-green-dark: #00544a; /* --primary, abgedunkelt (Hover/Active) */
+  --fva-text: #343a40;       /* --dark */
+  --fva-text-muted: #6c757d; /* --gray */
+  --fva-border: #dee2e6;
+  --fva-bg: #ffffff;         /* --white */
+  --fva-bg-muted: #f8f9fa;   /* --light */
+  --fva-danger: #ff4136;     /* --danger */
   --fva-radius: 8px;
   --fva-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  --fva-font: "Segoe UI", Roboto, Arial, sans-serif;
+  --fva-font: "PT Sans Narrow", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 html, body {
@@ -27,7 +30,7 @@ html, body {
   color: var(--fva-text);
 }
 
-#map, .behoerde-map {
+#map, .fva-map, .behoerde-map {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -52,8 +55,16 @@ html, body {
 
 /* Eigene (nicht-native) Controls (Legende, Timeline, Layer-Auswahl, ...)
    bekommen über diese Klasse denselben 10px-Eckabstand wie MapLibres
-   eigene Controls – an jede eigene Control-Container-Div anhängen. */
-.maplibregl-ctrl.app-ctrl { margin: 10px; }
+   eigene Controls – an jede eigene Control-Container-Div anhängen.
+   pointer-events:auto ist die Absicherung: die MapLibre-Ecken-Container
+   setzen pointer-events:none; ohne Rücknahme fallen Klicks/Scrolls durch
+   das Control auf die Karte durch (Symptom: Klick auf die Legende öffnet
+   ein Popup). Eigene Controls sollten zusätzlich die Klasse
+   "maplibregl-ctrl" tragen. */
+.app-ctrl {
+  margin: 10px;
+  pointer-events: auto;
+}
 
 /* -------------------------------------------------------------------------
    Popup-Hülle (fix) – Rahmen für ALLE Kartentypen
@@ -78,9 +89,10 @@ html, body {
 }
 
 .fva-popup__header {
-  background: var(--fva-green);
-  color: #ffffff;
+  background: var(--fva-bg);
+  color: var(--fva-text);
   padding: 10px 14px;
+  border-bottom: 1px solid var(--fva-border);
   font-weight: 700;
   font-size: 14px;
   line-height: 1.3;
@@ -103,7 +115,7 @@ html, body {
 }
 
 /* Bilder mit dieser Klasse öffnen per Klick die gemeinsame Lightbox
-   (siehe BehoerdeMap.initImageLightbox in basemap.js) */
+   (siehe FVAMap.initImageLightbox in basemap.js) */
 .fva-popup__img {
   cursor: zoom-in;
 }
@@ -122,37 +134,9 @@ html, body {
   font-weight: 600;
 }
 
-/* Lade- / Fehlerzustand im Popup (für Live-Datenanbindung) */
-.fva-popup__state {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 14px;
-  color: var(--fva-text-muted);
-  font-size: 13px;
-}
-
-.fva-popup__state--error {
-  color: var(--fva-danger);
-}
-
-.fva-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--fva-border);
-  border-top-color: var(--fva-green);
-  border-radius: 50%;
-  animation: fva-spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes fva-spin {
-  to { transform: rotate(360deg); }
-}
-
 /* -------------------------------------------------------------------------
    Legende – Basis für alle Karten
-   Wird als echtes MapLibre-Control erzeugt (BehoerdeMap.createLegendControl,
+   Wird als echtes MapLibre-Control erzeugt (FVAMap.addLegend,
    map.addControl(legend, 'bottom-right')); die Positionierung übernimmt
    MapLibre selbst (siehe .maplibregl-ctrl-* oben), daher hier KEIN
    position:absolute mehr.
@@ -172,12 +156,28 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  width: 100%;
   padding: 8px 10px;
   cursor: pointer;
   user-select: none;
   font-weight: 700;
+  font-size: 12px;
+  font-family: var(--fva-font);
   color: var(--fva-text);
+  /* Reset für den <button>-Fall (einklappbare Legende) */
+  border: 0;
+  background: transparent;
+  text-align: left;
+  line-height: 1.5;
 }
+
+.map-legend__header:focus-visible {
+  outline: 2px solid var(--fva-green);
+  outline-offset: -2px;
+}
+
+button.map-legend__header { appearance: none; -webkit-appearance: none; }
 
 .map-legend__chevron {
   transition: transform 0.15s ease;
@@ -225,8 +225,10 @@ html, body {
   position: absolute;
   pointer-events: none;
   z-index: 6;
-  background: rgba(20, 20, 20, 0.88);
-  color: #ffffff;
+  background: var(--fva-bg);
+  color: var(--fva-text);
+  border: 1px solid var(--fva-border);
+  box-shadow: var(--fva-shadow);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -236,24 +238,30 @@ html, body {
   display: none;
 }
 
+/* Titelzeile in einem mehrzeiligen Tooltip. */
+.fva-tooltip__title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
 /* -------------------------------------------------------------------------
-   Ladebalken über der ganzen Karte (z. B. beim Nachladen von Layern)
+   Fehlermeldung im Karten-Container (WebGL fehlt, Style nicht ladbar, ...)
    ------------------------------------------------------------------------- */
-.fva-map-loading {
+.fva-map-error {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
-  z-index: 10;
-  font-family: var(--fva-font);
+  text-align: center;
+  padding: 24px;
+  background: var(--fva-bg-muted);
   color: var(--fva-text-muted);
+  font-family: var(--fva-font);
   font-size: 13px;
-  gap: 8px;
+  line-height: 1.5;
+  z-index: 20;
 }
-
-.fva-map-loading[hidden] { display: none; }
 
 /* -------------------------------------------------------------------------
    Bild-Lightbox (gemeinsam für alle Karten, siehe initImageLightbox)
