@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>FVA – Basemap (Referenz)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
+  <link rel="stylesheet" href="../base/basemap.css" />
+</head>
+<body>
+  <div id="map" class="behoerde-map"></div>
+
+  <script src="../vendor/maplibre-gl.js"></script>
+  <script src="../base/basemap.js"></script>
+  <script>
+    // Reine Grundkarte – keine fachspezifischen Layer/Popups.
+    // Dient als Referenz/Testfall für die gemeinsame Basemap sowie als
+    // Ausgangspunkt beim Anlegen einer neuen karte_*.html.
+    BehoerdeMap.create({
+      container: "map",
+      // center/zoom oder bounds je nach Kartentyp anpassen
+    });
+  </script>
+</body>
+</html>

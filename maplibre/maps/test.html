@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>FVA Karten – Testübersicht</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: #fafafa;
+      color: #222;
+    }
+    h1 { margin-top: 0; }
+    p.hinweis {
+      color: #666;
+      font-size: 13px;
+      max-width: 640px;
+    }
+    .karte {
+      margin-bottom: 32px;
+    }
+    .karte h2 {
+      font-size: 15px;
+      margin: 0 0 8px 0;
+      color: #047136;
+    }
+    .karte iframe {
+      display: block;
+      width: 100%;
+      max-width: 900px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    #fehler {
+      display: none;
+      background: #fdecea;
+      border: 1px solid #f5c2c0;
+      color: #b3261e;
+      padding: 12px 16px;
+      border-radius: 6px;
+      max-width: 640px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>FVA Karten – Testübersicht</h1>
+  <p class="hinweis">
+    Bindet automatisiert alle in <code>manifest.json</code> gelisteten Karten
+    aus diesem Ordner per iframe ein (analog zur späteren Einbindung in
+    TYPO3, inkl. <code>loading="lazy"</code>). Neue Karte hinzufügen:
+    Datei in diesen Ordner legen und einen Eintrag in
+    <code>manifest.json</code> ergänzen – hier erscheint sie automatisch.
+  </p>
+
+  <div id="fehler">
+    Die Kartenliste (<code>manifest.json</code>) konnte nicht geladen werden.
+    Das ist normal, wenn diese Datei direkt per <code>file://</code> im
+    Browser geöffnet wurde – lokale <code>fetch()</code>-Aufrufe werden dann
+    aus Sicherheitsgründen blockiert. Bitte über einen lokalen Webserver
+    aufrufen (z. B. <code>python3 -m http.server</code> in diesem Ordner)
+    oder direkt über TYPO3/fileadmin testen.
+  </div>
+
+  <div id="karten"></div>
+
+  <script>
+    fetch("./manifest.json", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then((karten) => {
+        const container = document.getElementById("karten");
+        karten.forEach((k) => {
+          const wrap = document.createElement("div");
+          wrap.className = "karte";
+
+          const h2 = document.createElement("h2");
+          h2.textContent = k.title + " (" + k.file + ")";
+          wrap.appendChild(h2);
+
+          const iframe = document.createElement("iframe");
+          iframe.src = "./" + k.file;
+          iframe.style.height = (k.height || 480) + "px";
+          iframe.loading = "lazy";
+          iframe.title = k.title;
+          wrap.appendChild(iframe);
+
+          container.appendChild(wrap);
+        });
+      })
+      .catch((err) => {
+        console.error("[FVA Test] manifest.json konnte nicht geladen werden:", err);
+        document.getElementById("fehler").style.display = "block";
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,2084 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>DWD PHENTHAUproc – Eichenprozessionsspinner</title>
+
+<!-- Gemeinsame FVA-Basemap (siehe /fileadmin/maplibre) statt individueller CDN-Version -->
+<link rel="stylesheet" href="../vendor/maplibre-gl.css" />
+<link rel="stylesheet" href="../base/basemap.css" />
+<script src="../vendor/maplibre-gl.js"></script>
+<script src="../base/basemap.js"></script>
+<!-- PNG-Export ohne Canvas-Handarbeit (eigenständige Zusatzbibliothek, nicht Teil der Basemap) -->
+<script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a1a;
+  }
+
+  /* ============================================================
+     MAP
+  ============================================================ */
+
+  #map {
+    height: 100vh;
+    width: 100%;
+    cursor: crosshair;
+  }
+  /* MapLibre sets its own cursor states on the canvas (grab, grabbing, ...);
+     force the crosshair click-to-query cursor to win regardless of drag state. */
+  #map .maplibregl-canvas {
+    cursor: crosshair !important;
+  }
+
+  /* ── Layer Selection Control (top right) ── */
+  .layer-selection-control {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+    font-size: 12px;
+    max-width: 220px;
+  }
+  .layer-selection-control label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+  }
+
+  /* ── Timeline Slider Control (bottom left) ── */
+  .timeline-slider-control {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 320px;
+  }
+
+  /* top row: buttons + date */
+  .tl-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tl-btn {
+    background: #006e60;
+    border: none;
+    color: #fff;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .tl-btn:hover { background: #005048; }
+  .tl-btn:disabled { background: #ccc; cursor: default; }
+  .tl-btn-text {
+    width: auto;
+    padding: 0 8px;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  #date-display {
+    font-size: 12px;
+    color: #444;
+    font-weight: 600;
+    flex: 1;
+    text-align: center;
+  }
+
+  /* slider row */
+  .tl-track-wrap {
+    position: relative;
+    height: 28px;
+    display: flex;
+    align-items: center;
+  }
+  /* year labels sit above the thumb */
+  .tl-year-labels {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 14px;
+    pointer-events: none;
+  }
+  .tl-year-label {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 600;
+    color: #888;
+    white-space: nowrap;
+  }
+  /* year dividers on the track */
+  .tl-year-divider {
+    position: absolute;
+    top: 14px;
+    width: 1px;
+    height: 14px;
+    background: #bbb;
+    pointer-events: none;
+  }
+  #timeline-slider {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 14px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    margin: 0;
+  }
+  .tl-track {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 3px;
+    background: #ddd;
+    pointer-events: none;
+  }
+  #timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #006e60;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #006e60;
+    margin-top: -4px;
+  }
+  #timeline-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #006e60;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #006e60;
+  }
+  #timeline-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; }
+  #timeline-slider::-moz-range-track { height: 6px; border-radius: 3px; background: transparent; }
+
+  /* Legende: jetzt vollständig in basemap.css (BehoerdeMap.createLegendControl) */
+
+  :fullscreen #map,
+  :-webkit-full-screen #map { height: 100vh; }
+
+  /* .maplibregl-ctrl.app-ctrl { margin: 10px; } -> jetzt in basemap.css */
+
+  /* ============================================================
+     MODAL / POPUP
+  ============================================================ */
+
+  #modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  #modal-overlay.open { display: flex; }
+
+  #modal {
+    background: #fff;
+    border-radius: 12px;
+    width: min(900px, 96vw);
+    max-height: 92vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  #modal-header {
+    padding: 10px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0;
+  }
+
+  /* Tabs live in the header, left side */
+  #modal-header .modal-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: none;
+    margin-bottom: 0;
+    flex: 1;
+  }
+  #modal-header .modal-tab {
+    padding: 8px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;  /* align with header border */
+    transition: color 0.15s, border-color 0.15s;
+  }
+  #modal-header .modal-tab:hover { color: #444; }
+  #modal-header .modal-tab.active {
+    color: #006e60;
+    border-bottom-color: #006e60;
+  }
+
+  #modal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  #year-select {
+    font-size: 12px;
+    font-family: inherit;
+    padding: 3px 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+  }
+  #year-select:hover { border-color: #aaa; }
+  #year-select:focus { outline: none; border-color: #006e60; }
+  #modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    padding: 0 0 0 12px;
+    flex-shrink: 0;
+  }
+  #modal-close-btn:hover { color: #333; }
+
+  /* Panel title (Entwicklung des EPS YYYY + coords) */
+  .panel-title {
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .panel-title h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 2px;
+  }
+  .panel-title .panel-location {
+    font-size: 12px;
+    font-weight: 600;
+    color: #444;
+    min-height: 16px;
+    margin-bottom: 1px;
+  }
+  .panel-title .panel-coords {
+    font-size: 11px;
+    color: #888;
+  }
+
+  .modal-tab-panel { display: none; }
+  .modal-tab-panel.active { display: block; }
+
+  #modal-body {
+    padding: 16px 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* ── Gantt chart area ── */
+  #chart-area {
+    display: none;
+    position: relative;  /* anchor for the overlay spinner */
+  }
+
+  /* ── Loading spinner overlay (sits on top of the skeleton chart) ── */
+  #chart-loading-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.75);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+  }
+  #chart-loading-overlay.visible { display: flex; }
+
+  .spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid #e6e6e6;
+    border-top: 3px solid #006e60;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  #gantt-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+  #gantt-wrap svg {
+    display: block;
+    width: 100%;
+  }
+
+  /* ── Gantt legend below chart ── */
+  .gantt-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px 12px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: #444;
+  }
+  .gantt-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .gantt-legend .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+  }
+  .legend-note {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: #666;
+    line-height: 1.5;
+  }
+
+  /* ── Data table ── */
+  #table-panel {
+    position: relative;
+  }
+  #print-btn {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    color: #555;
+    height: 100%;
+    box-sizing: border-box;
+  }
+  #print-btn:hover { background: #f5f5f5; }
+
+  #eps-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    clear: both;
+  }
+  #eps-table th {
+    background: #006e60;
+    color: #fff;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    vertical-align: top;
+  }
+  #eps-table td {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+    color: #333;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  #eps-table td.col-date {
+    white-space: nowrap;
+    font-weight: 600;
+    min-width: 80px;
+  }
+  #eps-table .cell-empty {
+    color: #aaa;
+    font-style: italic;
+    font-weight: normal;
+  }
+  #eps-table .cell-forecast { color: #888; }
+  #eps-table-note {
+    margin-top: 10px;
+    font-size: 10.5px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ============================================================
+     GANTT TOOLTIP
+  ============================================================ */
+
+  #gantt-tooltip {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+    padding: 7px 11px;
+    border-radius: 7px;
+    font-size: 11px;
+    pointer-events: none;
+    display: none;
+    z-index: 20000;
+    line-height: 1.7;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- ── Modal ── -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-header">
+      <!-- Tabs: left -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="gantt-panel">Grafik</button>
+        <button class="modal-tab"        data-tab="table-panel">Tabelle</button>
+      </div>
+      <!-- Year + print + close: right -->
+      <div id="modal-header-right">
+        <select id="year-select"></select>
+        <button id="print-btn" onclick="exportPng()">Export</button>
+        <button id="modal-close-btn">✕</button>
+      </div>
+    </div>
+    <div id="modal-body">
+      <div id="chart-area">
+        <div id="chart-loading-overlay"><div class="spinner"></div></div>
+
+        <!-- Grafik panel -->
+        <div class="modal-tab-panel active" id="gantt-panel">
+          <div class="panel-title">
+            <h2 id="panel-title-text">Entwicklung des Eichenprozessionsspinners</h2>
+            <div class="panel-location" id="gantt-location"></div>
+            <div class="panel-coords" id="modal-coords">–</div>
+          </div>
+          <div id="gantt-wrap"></div>
+          <div class="gantt-legend" id="gantt-legend"></div>
+        </div>
+
+        <!-- Tabelle panel -->
+        <div class="modal-tab-panel" id="table-panel">
+          <div class="panel-title">
+            <h2 id="table-title-text">Entwicklung des Eichenprozessionsspinners</h2>
+            <div class="panel-location" id="table-location"></div>
+            <div class="panel-coords" id="table-coords">–</div>
+          </div>
+          <table id="eps-table">
+            <thead>
+              <tr>
+                <th style="width:22%">Phänologisches Ereignis</th>
+                <th style="width:10%">Datum</th>
+                <th style="width:42%">Informationen und Gefährdung</th>
+                <th style="width:26%">Regulierungsmöglichkeiten</th>
+              </tr>
+            </thead>
+            <tbody id="eps-table-body">
+              <!-- filled by fillTableData() -->
+            </tbody>
+          </table>
+          <p id="eps-table-note">* Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarbelastung sind ganzjährig möglich.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="gantt-tooltip"></div>
+
+<script>
+
+// ── TEST DATE OVERRIDE (set to null to use real today) ──
+const TEST_DATE = null //'2025-06-02';
+
+function getToday() {
+  return TEST_DATE || new Date().toISOString().split('T')[0];
+}
+
+
+// ============================================================
+// SHARED LEGENDS
+// ============================================================
+
+const LEGENDS = {
+  stages: {
+    0: { label: "Ei",               color: "#DDDDDD" },
+    1: { label: "1. Larvenstadium", color: "#2D8C8E" },
+    2: { label: "2. Larvenstadium", color: "#1B6C6D" },
+    3: { label: "3. Larvenstadium", color: "#F4E19D" },
+    4: { label: "4. Larvenstadium", color: "#FDBB63" },
+    5: { label: "5. Larvenstadium", color: "#F06B35" },
+    6: { label: "6. Larvenstadium", color: "#E6001A" },
+    7: { label: "Puppe",            color: "#BC6BCC" },
+    8: { label: "Falter",           color: "#8C1A9B" }
+  },
+  regulation: {
+    0: { label: "Keine Maßnahmen",                  color: "#DDDDDD" },
+    1: { label: "Präventiv zielführend",             color: "#6BAF66" },
+    2: { label: "Präventiv nicht mehr zielführend",  color: "#F6C141" },
+    3: { label: "Mechanisch zielführend",            color: "#00833E" }
+  }
+};
+
+// Gantt rows rendered top-to-bottom in this order
+const STAGE_RENDER_ORDER = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+
+
+// ============================================================
+// WMS DEFINITIONS
+// ============================================================
+
+const WMS_BASE_URL = "https://cdc.dwd.de/geoserver/CDC-PHENO/wms?";
+
+// Tile layers shown on the map
+const WMS_LAYER_CONFIGS = {
+  "Entwicklungsstadien": {
+    layerName: "CDC-PHENO:GRD_DEU_P1D_STAGES_THAUPROC",
+    style:     "stages.thaumetopoea_processionea",
+    opacity:   0.8,
+    dimEvent:  205,
+    legend:    LEGENDS.stages
+  },
+  "Regulierungsmöglichkeiten": {
+    layerName: "CDC-PHENO:GRD_DEU_P1D_REGULATION_THAUPROC",
+    style:     "regulation.thaumetopoea_processionea",
+    opacity:   0.8,
+    dimEvent:  null,
+    legend:    LEGENDS.regulation
+  }
+};
+
+// Data series fetched for the popup chart (GetFeatureInfo)
+const WMS_CHART_SERIES = {
+  stagesMean: {
+    layerName: "CDC-PHENO:GRD_DEU_P1D_STAGES_THAUPROC",
+    dimEvent:  205,  // mittlere Entwicklung
+    legend:    LEGENDS.stages
+  },
+  stagesFast: {
+    layerName: "CDC-PHENO:GRD_DEU_P1D_STAGES_THAUPROC",
+    dimEvent:  201,  // schnelle Entwicklung
+    legend:    LEGENDS.stages
+  },
+  regulation: {
+    layerName: "CDC-PHENO:GRD_DEU_P1D_REGULATION_THAUPROC",
+    dimEvent:  215,  // Regulierungsmöglichkeiten
+    legend:    LEGENDS.regulation
+  }
+};
+
+
+// ============================================================
+// TIMELINE: fetched from WMS GetCapabilities
+// ============================================================
+
+async function fetchAvailableDates() {
+  const layerName = WMS_LAYER_CONFIGS["Entwicklungsstadien"].layerName;
+  const url = WMS_BASE_URL + new URLSearchParams({
+    SERVICE: "WMS", VERSION: "1.3.0", REQUEST: "GetCapabilities"
+  });
+  try {
+    const res  = await fetch(url);
+    const text = await res.text();
+    const doc  = new DOMParser().parseFromString(text, "text/xml");
+
+    // Find the Layer matching our layer name — server omits the workspace prefix
+    const allNames  = [...doc.querySelectorAll("Name")];
+    const shortName = layerName.includes(':') ? layerName.split(':')[1] : layerName;
+    const match     = allNames.find(n => n.textContent.trim() === shortName);
+    if (!match) {
+      console.warn('[Timeline] Layer not found in capabilities:', layerName);
+      return null;
+    }
+
+    const layerEl = match.parentElement;
+    const timeDim = layerEl.querySelector("Dimension[name='time'], Extent[name='time']");
+    if (!timeDim) {
+      console.warn('[Timeline] No time dimension found for layer');
+      return null;
+    }
+
+    const raw = timeDim.textContent.trim();
+    console.log('[Timeline] Raw time dimension:', raw.slice(0, 200));
+
+    // Format 1: comma-separated list of ISO dates
+    // e.g. "2024-01-01T00:00:00Z,2024-01-02T00:00:00Z,..."
+    if (raw.includes(',')) {
+      const dates = raw.split(',').map(d => d.trim()).filter(Boolean);
+      console.log('[Timeline] Parsed', dates.length, 'dates from list');
+      return dates;
+    }
+
+    // Format 2: period range "start/end/resolution"
+    // e.g. "2024-01-01T00:00:00Z/2025-12-31T00:00:00Z/P1D"
+    if (raw.includes('/')) {
+      const parts = raw.split('/');
+      const start = new Date(parts[0].trim());
+      const end   = new Date(parts[1].trim());
+      const res   = parts[2]?.trim() || 'P1D';
+      // Parse resolution — only handle P1D (daily) and P1M (monthly) for now
+      const stepMs = res === 'P1M'
+        ? null  // handled specially below
+        : (parseInt(res.replace(/[^0-9]/g, '')) || 1) * 24 * 60 * 60 * 1000;
+
+      const dates = [];
+      if (res === 'P1M') {
+        const d = new Date(start);
+        while (d <= end) {
+          dates.push(d.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+          d.setMonth(d.getMonth() + 1);
+        }
+      } else {
+        const d = new Date(start);
+        while (d <= end) {
+          dates.push(d.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+          d.setTime(d.getTime() + stepMs);
+        }
+      }
+      console.log('[Timeline] Expanded period to', dates.length, 'dates (step:', res, ')');
+      return dates.length ? dates : null;
+    }
+
+    // Format 3: single date
+    console.log('[Timeline] Single date found');
+    return [raw];
+
+  } catch (e) {
+    console.error('[Timeline] GetCapabilities failed:', e);
+    return null;
+  }
+}
+
+function buildTimelineFallback() {
+  const dates = [];
+  const today = new Date(getToday());
+  for (let offset = -7; offset <= 4; offset++) {
+    const day = new Date(today);
+    day.setDate(today.getDate() + offset);
+    dates.push(day.toISOString().split('T')[0] + "T00:00:00.000Z");
+  }
+  return dates;
+}
+
+let TIMELINE_DATES       = buildTimelineFallback();
+let TIMELINE_TODAY_INDEX = 7;
+let ALL_TIMELINE_DATES   = null;   // full server list, stored for toggle
+let SHOW_ALL_YEARS       = false;
+
+// Returns dates filtered to the last N full years + current year
+function filterToRecentYears(dates, n = 3) {
+  const today     = getToday();
+  const thisYear  = new Date(today).getFullYear();
+  const firstYear = thisYear - n;                     // e.g. 2025 - 3 = 2022
+  const cutoff    = `${firstYear}-01-01`;              // keep from Jan 1 of that year
+  return dates.filter(d => d.slice(0, 10) >= cutoff);
+}
+
+function rebuildTimeline(dates) {
+  const today = getToday();
+  let todayIdx = 0;
+  for (let i = 0; i < dates.length; i++) {
+    if (dates[i].slice(0, 10) <= today) todayIdx = i;
+    else break;
+  }
+  TIMELINE_DATES       = dates;
+  TIMELINE_TODAY_INDEX = todayIdx;
+  const slider = document.getElementById('timeline-slider');
+  if (!slider) return;
+  slider.max   = dates.length - 1;
+  slider.value = todayIdx;
+  buildYearMarkers();
+  updateSliderTrackFill();
+  showLayer(selectedLayerKey, todayIdx);
+
+  // Update toggle button label
+  const btn = document.getElementById('tl-allyears');
+  if (btn) btn.textContent = SHOW_ALL_YEARS ? '2 Jahre' : 'Alle Jahre';
+}
+
+
+// ============================================================
+// MAP SETUP
+// ============================================================
+
+// Karten-Init über die gemeinsame Basemap (siehe base/basemap.js):
+// einheitlicher Style (Vektor-Basemap statt der bisherigen individuellen
+// OSM-HOT-Rasterkacheln), Navigation- und Fullscreen-Control, Rotation aus.
+const map = BehoerdeMap.create({
+  container: 'map',
+  center: [9.0, 48.65],   // MapLibre uses [lng, lat]
+  zoom: 7
+});
+
+
+// ============================================================
+// WMS TILE LAYER FACTORY  (used by the map)
+// ============================================================
+
+// Builds a WMS GetMap tile URL template. MapLibre (like Mapbox GL) understands
+// the special "{bbox-epsg-3857}" token in raster source `tiles` URLs and fills
+// it in per-tile with "minx,miny,maxx,maxy" in Web Mercator — this is built
+// specifically for talking to WMS servers, so no plugin is required here either.
+function buildWmsTileUrl(config, isoDateString) {
+  const params = new URLSearchParams({
+    SERVICE:     "WMS",
+    VERSION:     "1.3.0",
+    REQUEST:     "GetMap",
+    FORMAT:      "image/png",
+    TRANSPARENT: "true",
+    LAYERS:      config.layerName,
+    STYLES:      config.style,
+    CRS:         "EPSG:3857",
+    WIDTH:       "256",
+    HEIGHT:      "256",
+    TIME:        isoDateString
+  });
+  if (config.dimEvent !== null) params.set("dim_event", config.dimEvent);
+  return `${WMS_BASE_URL}${params.toString()}&BBOX={bbox-epsg-3857}`;
+}
+
+
+// LEGEND CONTROL kommt jetzt aus der gemeinsamen Basemap
+// (BehoerdeMap.createLegendControl, siehe showLayer() unten).
+
+
+// ============================================================
+// ACTIVE LAYER STATE  — crossfade, no flicker
+// ============================================================
+
+let activeLayerId    = null;
+let activeLegend      = null;
+let selectedLayerKey  = "Entwicklungsstadien";
+let wmsLayerCounter   = 0;
+
+function showLayer(layerKey, timelineIndex) {
+  const config  = WMS_LAYER_CONFIGS[layerKey];
+  const isoDate = TIMELINE_DATES[timelineIndex];
+  if (!isoDate) return;
+
+  // Add new layer/source at opacity 0, reveal only once tiles are loaded.
+  // MapLibre sources/layers need unique ids, so each date+layer combo gets one.
+  const newId = `wms-layer-${wmsLayerCounter++}`;
+  map.addSource(newId, {
+    type:     'raster',
+    tiles:    [buildWmsTileUrl(config, isoDate)],
+    tileSize: 256,
+    attribution: "<a href='https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html' target='_blank'>DWD PHENTHAUproc</a>"
+  });
+  map.addLayer({
+    id:     newId,
+    type:   'raster',
+    source: newId,
+    paint:  { 'raster-opacity': 0 }
+  });
+
+  const oldId   = activeLayerId;
+  activeLayerId = newId;
+
+  let revealed = false;
+  const reveal = () => {
+    if (revealed) return;
+    revealed = true;
+    if (map.getLayer(newId)) map.setPaintProperty(newId, 'raster-opacity', config.opacity);
+    if (oldId && map.getLayer(oldId)) { map.removeLayer(oldId); map.removeSource(oldId); }
+  };
+
+  const onSourceData = (e) => {
+    if (e.sourceId === newId && map.isSourceLoaded(newId)) {
+      map.off('sourcedata', onSourceData);
+      reveal();
+    }
+  };
+  map.on('sourcedata', onSourceData);
+
+  // Fallback: reveal after 3s regardless
+  setTimeout(() => {
+    map.off('sourcedata', onSourceData);
+    reveal();
+  }, 3000);
+
+  if (activeLegend) map.removeControl(activeLegend);
+  const legendNote = layerKey === 'Regulierungsmöglichkeiten'
+    ? 'Präventiv bedeutet hier eine Behandlung vor Ausbildung größerer Brennhaar-Mengen.<br>' +
+      'Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarquelle sind ganzjährig möglich.'
+    : undefined;
+  activeLegend = BehoerdeMap.createLegendControl({
+    title: layerKey,
+    items: Object.values(config.legend).map(s => ({ color: s.color, label: s.label })),
+    note: legendNote,
+    collapsible: true,
+  });
+  map.addControl(activeLegend, 'bottom-right');
+
+  document.getElementById('date-display').textContent = isoDate.split('T')[0];
+}
+
+
+
+// ============================================================
+
+// stopMapPropagation() kommt jetzt aus der gemeinsamen Basemap (basemap.js)
+
+const timelineSliderControl = {
+  onAdd() {
+    const container = document.createElement('div');
+    container.className = 'timeline-slider-control app-ctrl';
+    container.innerHTML = `
+      <div class="tl-controls">
+        <button class="tl-btn tl-btn-text" id="tl-allyears" title="Alle Jahre anzeigen">Alle Jahre</button>
+        <button class="tl-btn" id="tl-prev"  title="Einen Tag zurück">⏴</button>
+        <button class="tl-btn" id="tl-play"  title="Abspielen">▶</button>
+        <button class="tl-btn" id="tl-today" title="Heute">◎</button>
+        <button class="tl-btn" id="tl-next"  title="Einen Tag vor">⏵</button>
+        <span id="date-display"></span>
+      </div>
+      <div class="tl-track-wrap">
+        <div class="tl-year-labels" id="tl-year-labels"></div>
+        <div class="tl-track"       id="tl-track"></div>
+        <input type="range" id="timeline-slider"
+          min="0" max="${TIMELINE_DATES.length - 1}" value="${TIMELINE_TODAY_INDEX}">
+      </div>
+    `;
+    BehoerdeMap.stopMapPropagation(container);
+    this._container = container;
+    return container;
+  },
+  onRemove() {
+    this._container?.remove();
+  }
+};
+
+map.addControl(timelineSliderControl, 'bottom-left');
+
+const timelineSlider = document.getElementById('timeline-slider');
+const playPauseBtn   = document.getElementById('tl-play');
+
+// Build year labels + dividers on the track
+function buildYearMarkers() {
+  const labelsEl = document.getElementById('tl-year-labels');
+  if (!labelsEl) return;
+  labelsEl.innerHTML = '';
+
+  const total = TIMELINE_DATES.length;
+  // Group consecutive indices by year
+  const years = {};
+  TIMELINE_DATES.forEach((iso, i) => {
+    const y = iso.slice(0, 4);
+    if (!years[y]) years[y] = { first: i, last: i };
+    else years[y].last = i;
+  });
+
+  Object.entries(years).forEach(([year, { first, last }]) => {
+    const midIdx  = (first + last) / 2;
+    const midPct  = midIdx / (total - 1) * 100;
+
+    // Year label
+    const lbl = document.createElement('div');
+    lbl.className   = 'tl-year-label';
+    lbl.textContent = year;
+    lbl.style.left  = `${midPct}%`;
+    labelsEl.appendChild(lbl);
+
+    // Divider before this year (skip the first)
+    if (first > 0) {
+      const divPct = (first - 0.5) / (total - 1) * 100;
+      const div    = document.createElement('div');
+      div.className  = 'tl-year-divider';
+      div.style.left = `${divPct}%`;
+      labelsEl.appendChild(div);
+    }
+  });
+}
+
+function updateSliderTrackFill() {
+  const pct   = (+timelineSlider.value - +timelineSlider.min)
+              / (+timelineSlider.max   - +timelineSlider.min) * 100;
+  const track = document.getElementById('tl-track');
+  if (track) track.style.background =
+    `linear-gradient(to right, #006e60 0%, #006e60 ${pct}%, #ddd ${pct}%, #ddd 100%)`;
+}
+
+function setSliderIndex(idx) {
+  idx = Math.max(+timelineSlider.min, Math.min(+timelineSlider.max, idx));
+  timelineSlider.value = idx;
+  showLayer(selectedLayerKey, idx);
+  updateSliderTrackFill();
+}
+
+timelineSlider.addEventListener('input', function () {
+  showLayer(selectedLayerKey, +this.value);
+  updateSliderTrackFill();
+});
+
+// Buttons
+document.getElementById('tl-prev').addEventListener('click', () =>
+  setSliderIndex(+timelineSlider.value - 1));
+
+document.getElementById('tl-next').addEventListener('click', () =>
+  setSliderIndex(+timelineSlider.value + 1));
+
+document.getElementById('tl-today').addEventListener('click', () =>
+  setSliderIndex(TIMELINE_TODAY_INDEX));
+
+document.getElementById('tl-allyears').addEventListener('click', () => {
+  if (!ALL_TIMELINE_DATES) return;
+  SHOW_ALL_YEARS = !SHOW_ALL_YEARS;
+  const dates = SHOW_ALL_YEARS ? ALL_TIMELINE_DATES : filterToRecentYears(ALL_TIMELINE_DATES, 2);
+  rebuildTimeline(dates);
+});
+
+let playbackInterval = null;
+
+playPauseBtn.addEventListener('click', () => {
+  if (playbackInterval) {
+    clearInterval(playbackInterval);
+    playbackInterval = null;
+    playPauseBtn.textContent = '▶';
+    playPauseBtn.title       = 'Abspielen';
+    return;
+  }
+  playPauseBtn.textContent = '⏸';
+  playPauseBtn.title       = 'Pause';
+  playbackInterval = setInterval(() => {
+    const next = +timelineSlider.value + 1;
+    if (next > +timelineSlider.max) {
+      clearInterval(playbackInterval);
+      playbackInterval = null;
+      playPauseBtn.textContent = '▶';
+      playPauseBtn.title       = 'Abspielen';
+      return;
+    }
+    setSliderIndex(next);
+  }, 1200);
+});
+
+buildYearMarkers();
+
+
+// ============================================================
+// LAYER SELECTION CONTROL  (top right)
+// ============================================================
+
+const layerSelectionControl = {
+  onAdd() {
+    const container = document.createElement('div');
+    container.className = 'layer-selection-control app-ctrl';
+    BehoerdeMap.stopMapPropagation(container);
+
+    container.innerHTML =
+      '<strong style="display:block; margin-bottom:6px; font-size:12px">Eichenprozessionsspinner</strong>';
+
+    Object.keys(WMS_LAYER_CONFIGS).forEach(layerKey => {
+      const label = document.createElement('label');
+      const radio = document.createElement('input');
+      radio.type  = 'radio';
+      radio.name  = 'layer-selection';
+      radio.value = layerKey;
+      if (layerKey === selectedLayerKey) radio.checked = true;
+      radio.addEventListener('change', () => {
+        selectedLayerKey = radio.value;
+        showLayer(selectedLayerKey, +timelineSlider.value);
+      });
+      label.appendChild(radio);
+      label.appendChild(document.createTextNode(' ' + layerKey));
+      container.appendChild(label);
+    });
+
+    this._container = container;
+    return container;
+  },
+  onRemove() {
+    this._container?.remove();
+  }
+};
+
+map.addControl(layerSelectionControl, 'top-right');
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function formatDateGerman(dateStr) {
+  return new Date(dateStr + 'T00:00:00')
+    .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function lightenColor(hex, amount) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r   = (num >> 16);
+  const g   = (num >> 8) & 0x00FF;
+  const b   =  num       & 0x0000FF;
+  return '#' + (0x1000000
+    + (Math.round(r + (255 - r) * amount) << 16)
+    + (Math.round(g + (255 - g) * amount) <<  8)
+    +  Math.round(b + (255 - b) * amount))
+    .toString(16).slice(1);
+}
+
+
+// ============================================================
+// WMS GetFeatureInfo FETCHING  (used by the popup)
+// ============================================================
+
+// WGS84 → Gauß-Krüger Zone 3 (EPSG:31467)
+// Uses Transverse Mercator on the Bessel 1841 ellipsoid with Potsdam datum shift
+function wgs84ToGK3(lat, lng) {
+  // Helmert datum shift: WGS84 → Potsdam (approx, sufficient for GetFeatureInfo bbox)
+  const dX = -582, dY = -105, dZ = -414;
+  const da  = -739.845, df = -0.10037483e-4;
+
+  const a   = 6378137.0;          // WGS84 semi-major
+  const f   = 1 / 298.257223563;  // WGS84 flattening
+  const b   = a * (1 - f);
+  const e2  = 1 - (b * b) / (a * a);
+
+  const latR = lat * Math.PI / 180;
+  const lngR = lng * Math.PI / 180;
+
+  const sinLat = Math.sin(latR);
+  const cosLat = Math.cos(latR);
+  const N0 = a / Math.sqrt(1 - e2 * sinLat * sinLat);
+
+  // Cartesian WGS84
+  const X = N0 * cosLat * Math.cos(lngR);
+  const Y = N0 * cosLat * Math.sin(lngR);
+  const Z = N0 * (1 - e2) * sinLat;
+
+  // Shift to Potsdam
+  const Xp = X + dX, Yp = Y + dY, Zp = Z + dZ;
+
+  // Bessel 1841 ellipsoid
+  const aB  = 6377397.155;
+  const fB  = 1 / 299.1528128;
+  const bB  = aB * (1 - fB);
+  const e2B = 1 - (bB * bB) / (aB * aB);
+
+  const p      = Math.sqrt(Xp * Xp + Yp * Yp);
+  const latB   = Math.atan2(Zp, p * (1 - e2B));  // initial approx
+  let latBi    = latB;
+  for (let i = 0; i < 10; i++) {
+    const s  = Math.sin(latBi);
+    const NB = aB / Math.sqrt(1 - e2B * s * s);
+    latBi    = Math.atan2(Zp + e2B * NB * Math.sin(latBi), p);
+  }
+  const lngB = Math.atan2(Yp, Xp);
+  const sinLB = Math.sin(latBi), cosLB = Math.cos(latBi);
+  const NB    = aB / Math.sqrt(1 - e2B * sinLB * sinLB);
+
+  // Transverse Mercator onto GK zone 3 (central meridian 9°, false easting 3 500 000)
+  const lngCM = 9 * Math.PI / 180;
+  const dl    = lngB - lngCM;
+  const n     = (aB - bB) / (aB + bB);
+  const n2    = n * n, n3 = n * n2, n4 = n2 * n2;
+
+  const A0 = 1 + n2 / 4 + n4 / 64;
+  const A2 = 3/2  * (n - n3 / 8);
+  const A4 = 15/16 * (n2 - n4 / 4);
+  const A6 = 35/48 * n3;
+  const A8 = 315/512 * n4;
+
+  const G  = aB / (1 + n) * (A0 * latBi - A2 * Math.sin(2 * latBi) + A4 * Math.sin(4 * latBi) - A6 * Math.sin(6 * latBi) + A8 * Math.sin(8 * latBi));
+  const t  = Math.tan(latBi);
+  const eta2 = e2B / (1 - e2B) * cosLB * cosLB;
+  const V  = NB * cosLB;
+
+  const easting  = 3500000
+    + (V * dl)
+    + (V / 6   * dl * dl * dl * (1 - t * t + eta2))
+    + (V / 120 * dl * dl * dl * dl * dl * (5 - 18 * t * t + t * t * t * t + 14 * eta2 - 58 * t * t * eta2));
+
+  const northing = G
+    + (NB * sinLB * cosLB / 2 * dl * dl)
+    + (NB * sinLB * cosLB * cosLB * cosLB / 24 * (5 - t * t + 9 * eta2 + 4 * eta2 * eta2) * dl * dl * dl * dl);
+
+  return [easting, northing];
+}
+
+// WGS84 → Web Mercator (EPSG:3857)
+function wgs84ToWebMercator(lat, lng) {
+  const R   = 6378137.0;
+  const x   = R * lng * Math.PI / 180;
+  const y   = R * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+  return [x, y];
+}
+
+// Returns an array of numeric values (or null) aligned to `dates`, via a single time-range request
+async function fetchValuesForDates(layerName, dimEvent, bbox, dates) {
+  const params = new URLSearchParams({
+    SERVICE:       "WMS",
+    VERSION:       "1.1.1",
+    REQUEST:       "GetFeatureInfo",
+    FORMAT:        "image/png",
+    TRANSPARENT:   "true",
+    INFO_FORMAT:   "application/json",
+    FEATURE_COUNT: "9999",
+    X: "50", Y: "50",
+    SRS:         "EPSG:31467",
+    WIDTH: "101", HEIGHT: "101",
+    BBOX:        bbox,
+    TIME:        `${dates[0]}T00:00:00Z/${dates[dates.length - 1]}T23:59:59Z`,
+    LAYERS:      layerName,
+    QUERY_LAYERS: layerName,
+    DIM_EVENT:   dimEvent
+  });
+
+  try {
+    const res  = await fetch(WMS_BASE_URL + params);
+    const data = await res.json();
+    return dates.map(date => {
+      const feature = data.features?.find(f => f.properties?.TIME?.startsWith(date));
+      if (!feature) return null;
+      const v = feature.properties.RESULT_VALUE
+             ?? feature.properties.value
+             ?? feature.properties.VALUE;
+      return (v === null || v === undefined || v === -9999) ? null : v;
+    });
+  } catch {
+    return Array(dates.length).fill(null);
+  }
+}
+
+// Fetches all chart series defined in WMS_CHART_SERIES in parallel
+async function fetchAllChartData(latlng, dates) {
+  const [gkEasting, gkNorthing] = wgs84ToGK3(latlng.lat, latlng.lng);
+  const half = 1000;
+  const bbox = `${gkEasting-half},${gkNorthing-half},${gkEasting+half},${gkNorthing+half}`;
+
+  const entries  = Object.entries(WMS_CHART_SERIES);
+  const results  = await Promise.all(
+    entries.map(([, series]) => fetchValuesForDates(series.layerName, series.dimEvent, bbox, dates))
+  );
+
+  return Object.fromEntries(entries.map(([key], i) => [key, results[i]]));
+}
+
+// Fetches a single BBCH phenology date (Knospenschwellen / Blattentfaltung).
+// Returns an ISO date string like "2026-04-15" or null.
+async function fetchBbchDate(dimEvent, bbox, year) {
+  const BBCH_LAYER = "CDC-PHENO:GRD_DEU_P1Y_BBCH";
+  const params = new URLSearchParams({
+    SERVICE:       "WMS",
+    VERSION:       "1.1.1",
+    REQUEST:       "GetFeatureInfo",
+    FORMAT:        "application/json",
+    TRANSPARENT:   "true",
+    INFO_FORMAT:   "application/json",
+    FEATURE_COUNT: "50",
+    X: "50", Y: "50",
+    SRS:          "EPSG:31467",
+    WIDTH: "101", HEIGHT: "101",
+    BBOX:         bbox,
+    TIME:         `${year}-01-01T00:00:00Z`,
+    LAYERS:       BBCH_LAYER,
+    QUERY_LAYERS: BBCH_LAYER,
+    DIM_EVENT:    dimEvent,
+    DIM_LINEAGE:  "1"
+  });
+  try {
+    const res  = await fetch(WMS_BASE_URL + params);
+    const data = await res.json();
+    const feature = data.features?.[0];
+    if (!feature) return null;
+    const v = feature.properties.RESULT_VALUE
+           ?? feature.properties.value
+           ?? feature.properties.VALUE;
+    if (v === null || v === undefined || v === -9999) return null;
+    // Value may be a day-of-year integer or an ISO date string
+    if (typeof v === 'number') {
+      const d = new Date(year, 0, 1);
+      d.setDate(d.getDate() + Math.round(v) - 1);
+      return d.toISOString().split('T')[0];
+    }
+    return String(v).split('T')[0];
+  } catch {
+    return null;
+  }
+}
+
+// Fetches BBCH dates (Knospenschwellen + Blattentfaltung) + mortality in parallel
+async function fetchBbchDates(latlng, year) {
+  const [gkEasting, gkNorthing] = wgs84ToGK3(latlng.lat, latlng.lng);
+  const half = 1000;
+  const bbox = `${gkEasting-half},${gkNorthing-half},${gkEasting+half},${gkNorthing+half}`;
+  const [knospenschwellen, blattentfaltung, mortality] = await Promise.all([
+    fetchBbchDate(68, bbox, year),
+    fetchBbchDate(4,  bbox, year),
+    fetchSingleValue("CDC-PHENO:GRD_DEU_P1Y_MORTALITY_THAUPROC", 225, bbox, year)
+  ]);
+  return { knospenschwellen, blattentfaltung, mortality };
+}
+
+// Fetches a single numeric value (no DIM_LINEAGE) — used for mortality etc.
+async function fetchSingleValue(layerName, dimEvent, bbox, year) {
+  const params = new URLSearchParams({
+    SERVICE:       "WMS",
+    VERSION:       "1.1.1",
+    REQUEST:       "GetFeatureInfo",
+    FORMAT:        "application/json",
+    TRANSPARENT:   "true",
+    INFO_FORMAT:   "application/json",
+    FEATURE_COUNT: "50",
+    X: "50", Y: "50",
+    SRS:          "EPSG:31467",
+    WIDTH: "101", HEIGHT: "101",
+    BBOX:         bbox,
+    TIME:         `${year}-01-01T00:00:00Z`,
+    LAYERS:       layerName,
+    QUERY_LAYERS: layerName,
+    DIM_EVENT:    dimEvent
+  });
+  try {
+    const res  = await fetch(WMS_BASE_URL + params);
+    const data = await res.json();
+    const feature = data.features?.[0];
+    if (!feature) return null;
+    const v = feature.properties.RESULT_VALUE
+           ?? feature.properties.value
+           ?? feature.properties.VALUE;
+    return (v === null || v === undefined || v === -9999) ? null : +v;
+  } catch {
+    return null;
+  }
+}
+
+
+// ============================================================
+// CHART DATA PROCESSING  (pure functions, no rendering)
+// ============================================================
+
+// Collapses a value-per-date array into continuous same-value intervals, skipping nulls
+function buildIntervals(dates, values) {
+  const intervals  = [];
+  let currentValue = values[0];
+  let startIndex   = 0;
+
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] !== currentValue) {
+      if (currentValue !== null) {
+        intervals.push({ stage: currentValue, startDate: dates[startIndex], endDate: dates[i - 1] });
+      }
+      currentValue = values[i];
+      startIndex   = i;
+    }
+  }
+  if (currentValue !== null) {
+    intervals.push({ stage: currentValue, startDate: dates[startIndex], endDate: dates[dates.length - 1] });
+  }
+  return intervals;
+}
+
+// Collapses regulation values into stripe intervals for a given set of active regulation values
+function buildRegulationStripes(dates, values, activeValues) {
+  const stripes   = [];
+  let stripeStart = null;
+
+  values.forEach((v, i) => {
+    const isActive = v !== null && activeValues.includes(v);
+    if (isActive && stripeStart === null) {
+      stripeStart = dates[i];
+    } else if (!isActive && stripeStart !== null) {
+      stripes.push({ start: stripeStart, end: dates[i - 1], value: values[i - 1] });
+      stripeStart = null;
+    }
+  });
+  if (stripeStart !== null) {
+    stripes.push({ start: stripeStart, end: dates[dates.length - 1], value: values[values.length - 1] });
+  }
+  return stripes;
+}
+
+// Detects the Brennhaar health hazard period:
+//   start = first occurrence of stage 3 in fast development
+//   end   = first occurrence of stage 7 (pupa) in mean development
+function buildHealthHazardPhases(dates, stagesFast, stagesMean) {
+  const years  = [...new Set(dates.map(d => d.slice(0, 4)))];
+  const phases = [];
+
+  // Find the last date that actually has data (non-null in either series)
+  let lastDataDate = null;
+  for (let i = dates.length - 1; i >= 0; i--) {
+    if (stagesFast[i] !== null || stagesMean[i] !== null) {
+      lastDataDate = dates[i];
+      break;
+    }
+  }
+
+  for (const year of years) {
+    const firstMatch = (values, matchFn) => {
+      for (let i = 0; i < dates.length; i++) {
+        if (dates[i].startsWith(year) && matchFn(values[i])) return dates[i];
+      }
+      return null;
+    };
+
+    const hazardStart = firstMatch(stagesFast, v => v === 3);
+    const hazardEnd   = firstMatch(stagesMean, v => v === 7);
+
+    if (hazardStart && hazardEnd && hazardEnd > hazardStart) {
+      phases.push({ start: hazardStart, end: hazardEnd });
+    } else if (hazardStart && !hazardEnd) {
+      // Cap at last date with actual data so fade-out works correctly
+      const capDate = lastDataDate
+        || dates.filter(d => d.startsWith(year)).pop();
+      if (capDate) phases.push({ start: hazardStart, end: capDate });
+    }
+  }
+  return phases;
+}
+
+
+// ============================================================
+// GANTT CHART RENDERER
+// Split into: layout → skeleton (axes/grid) → data layers → tooltip
+// ============================================================
+
+/** Tiny SVG helpers — keep markup in one place */
+const svg = {
+  rect: (x, y, w, h, attrs = '') =>
+    `<rect x="${(+x).toFixed(1)}" y="${(+y).toFixed(1)}" width="${Math.max(2, +w).toFixed(1)}" height="${h}" ${attrs}/>`,
+  line: (x1, y1, x2, y2, attrs = '') =>
+    `<line x1="${(+x1).toFixed(1)}" y1="${(+y1).toFixed(1)}" x2="${(+x2).toFixed(1)}" y2="${(+y2).toFixed(1)}" ${attrs}/>`,
+  text: (x, y, content, attrs = '') =>
+    `<text x="${(+x).toFixed(1)}" y="${(+y).toFixed(1)}" ${attrs}>${content}</text>`,
+};
+
+function buildChartLayout(dates) {
+  const SVG_WIDTH    = 820;
+  const BAR_HEIGHT   = 36;
+  const LABEL_WIDTH  = 130;
+  const PADDING_TOP  = 36;
+  const INNER_WIDTH  = SVG_WIDTH - LABEL_WIDTH;
+  const CHART_HEIGHT = STAGE_RENDER_ORDER.length * BAR_HEIGHT;
+  const SVG_HEIGHT   = PADDING_TOP + CHART_HEIGHT + 28;
+
+  const startDate = new Date(dates[0]);
+  const totalMs   = new Date(dates[dates.length - 1]) - startDate || 1;
+  const dayWidth  = INNER_WIDTH / dates.length;
+  const dateToX   = dateStr =>
+    LABEL_WIDTH + ((new Date(dateStr) - startDate) / totalMs) * INNER_WIDTH;
+
+  return { SVG_WIDTH, BAR_HEIGHT, LABEL_WIDTH, PADDING_TOP, INNER_WIDTH,
+           CHART_HEIGHT, SVG_HEIGHT, dayWidth, dateToX };
+}
+
+// Renders the static chart skeleton (axes, grid, labels) — needs no fetched data
+function drawChartSkeleton(dates) {
+  const { SVG_WIDTH, BAR_HEIGHT, LABEL_WIDTH, PADDING_TOP, INNER_WIDTH,
+          CHART_HEIGHT, SVG_HEIGHT, dateToX } = buildChartLayout(dates);
+
+  const todayStr     = getToday();
+  const selectedYear = +document.getElementById('year-select').value;
+  const MONTH_NAMES  = ['Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep'];
+
+  const todayX = (todayStr >= dates[0] && todayStr <= dates[dates.length - 1])
+    ? dateToX(todayStr) : null;
+
+  const monthGridLines = MONTH_NAMES.map((name, i) => {
+    const monthIndex = i + 1;
+    return {
+      tickX:  dateToX(new Date(selectedYear, monthIndex, 1).toISOString().split('T')[0]),
+      labelX: dateToX(new Date(selectedYear, monthIndex, 15).toISOString().split('T')[0]),
+      name
+    };
+  });
+
+  const zebraRows = STAGE_RENDER_ORDER.map((_, row) => {
+    const y = PADDING_TOP + row * BAR_HEIGHT;
+    return `<rect x="${LABEL_WIDTH}" y="${y}" width="${INNER_WIDTH}" height="${BAR_HEIGHT}"
+      fill="${row % 2 === 0 ? '#fafafa' : '#f3f3f3'}"/>`;
+  }).join('');
+
+  const yAxisLabels = STAGE_RENDER_ORDER.map((stageId, row) => {
+    const y = PADDING_TOP + row * BAR_HEIGHT;
+    const s = LEGENDS.stages[stageId];
+    return `
+      <circle cx="10" cy="${y + BAR_HEIGHT / 2}" r="5"
+        fill="${s.color}" stroke="#bbb" stroke-width="0.5"/>
+      <text x="22" y="${y + BAR_HEIGHT / 2 + 4}" font-size="10.5" fill="#444">${s.label}</text>`;
+  }).join('');
+
+  const gridLines = monthGridLines.map(({ tickX, labelX, name }) => `
+    <line x1="${tickX.toFixed(1)}" y1="${PADDING_TOP}"
+          x2="${tickX.toFixed(1)}" y2="${PADDING_TOP + CHART_HEIGHT}"
+          stroke="#aaa" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <text x="${labelX.toFixed(1)}" y="${PADDING_TOP - 6}"
+      text-anchor="middle" font-size="9.5" fill="#555" font-weight="700">${name}</text>
+  `).join('');
+
+  const todayLine = todayX ? `
+    <line x1="${todayX.toFixed(1)}" y1="${PADDING_TOP - 4}"
+          x2="${todayX.toFixed(1)}" y2="${PADDING_TOP + CHART_HEIGHT + 4}"
+          stroke="#006e60" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="${(todayX + 3).toFixed(1)}" y="${PADDING_TOP - 18}"
+      font-size="9" fill="#006e60" font-weight="600">Heute</text>` : '';
+
+  const clipId = 'clip-' + Date.now();
+
+  document.getElementById('gantt-legend').innerHTML = `
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:repeating-linear-gradient(90deg,#6BAF6688 0 6px,transparent 6px 10px)"></div>
+      <span>Präventiv zielführend</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:repeating-linear-gradient(90deg,#00833E88 0 6px,transparent 6px 10px)"></div>
+      <span>Mechanisch zielführend</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#888; opacity:0.35"></div>
+      <span>Schnelle Entwicklung</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#E6001A; opacity:0.25"></div>
+      <span>Gesundheitsgefährdung Brennhaare</span>
+    </div>
+    <p class="legend-note"></p>`;
+
+  document.getElementById('gantt-wrap').innerHTML = `
+  <svg viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}"
+       style="font-family:'Segoe UI',sans-serif; width:100%; min-width:500px">
+
+    <defs>
+      <clipPath id="${clipId}">
+        <rect x="${LABEL_WIDTH}" y="${PADDING_TOP}" width="${INNER_WIDTH}" height="${CHART_HEIGHT}"/>
+      </clipPath>
+      <pattern id="hatch-1" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="#6BAF66" fill-opacity="0.12"/>
+        <line x1="0" y1="0" x2="0" y2="8" stroke="#6BAF66" stroke-width="3" stroke-opacity="0.55"/>
+      </pattern>
+      <pattern id="hatch-3" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="#00833E" fill-opacity="0.12"/>
+        <line x1="0" y1="0" x2="0" y2="8" stroke="#00833E" stroke-width="3" stroke-opacity="0.55"/>
+      </pattern>
+      <!-- fade-out mask: opaque at today, transparent at end -->
+      <linearGradient id="fade-mask-grad" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0%" stop-color="white" stop-opacity="1"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </linearGradient>
+      <mask id="fade-mask-today" maskContentUnits="objectBoundingBox">
+        <rect width="1" height="1" fill="url(#fade-mask-grad)"/>
+      </mask>
+    </defs>
+
+    ${zebraRows}
+    ${gridLines}
+
+    <!-- data layers injected here after fetch -->
+    <g id="gantt-data-layer" clip-path="url(#${clipId})"></g>
+
+    <rect x="${LABEL_WIDTH}" y="${PADDING_TOP}" width="${INNER_WIDTH}" height="${CHART_HEIGHT}"
+      fill="none" stroke="#ccc" stroke-width="1"/>
+
+    ${yAxisLabels}
+    ${todayLine}
+
+  </svg>`;
+}
+
+// Injects the fetched data (bars, stripes, health hazard) into the existing skeleton SVG
+function fillChartData(dates, stagesMean, stagesFast, regulation) {
+  const intervalsMean = buildIntervals(dates, stagesMean);
+  const intervalsFast = buildIntervals(dates, stagesFast);
+
+  const dataLayer = document.getElementById('gantt-data-layer');
+  if (!dataLayer) return;
+
+  if (!intervalsMean.length) {
+    document.getElementById('gantt-wrap').innerHTML =
+      '<p style="color:#999; font-size:12px; padding:20px 0">Keine Daten für diesen Punkt (außerhalb des Rasters?)</p>';
+    return;
+  }
+
+  const { BAR_HEIGHT, LABEL_WIDTH, PADDING_TOP, INNER_WIDTH,
+          CHART_HEIGHT, dayWidth, dateToX } = buildChartLayout(dates);
+
+  const todayStr = getToday();
+  const healthPhases   = buildHealthHazardPhases(dates, stagesFast, stagesMean);
+  const todayX = (todayStr >= dates[0] && todayStr <= dates[dates.length - 1])
+    ? dateToX(todayStr) : null;
+
+  /** Rect that fades out after "today" when it spans the forecast zone */
+  function fadingRect(x1, x2, y, h, fill, extraAttrs = '', rx = 0) {
+    const base = `rx="${rx}" fill="${fill}" ${extraAttrs}`;
+    if (!todayX || x2 <= todayX || x1 >= todayX) {
+      return svg.rect(x1, y, x2 - x1, h, base);
+    }
+    return svg.rect(x1, y, x2 - x1, h, base)
+      + svg.rect(todayX, y, x2 - todayX, h, `fill="${fill}" mask="url(#fade-mask-today)" ${extraAttrs}`);
+  }
+
+  function drawHealthHazard() {
+    return healthPhases.map(p => fadingRect(
+      dateToX(p.start), dateToX(p.end) + dayWidth, PADDING_TOP, CHART_HEIGHT, '#E6001A',
+      `class="health-hazard-bg" opacity="0.12" data-start="${p.start}" data-end="${p.end}" data-label="Gesundheitsgefährdung Brennhaare"`
+    )).join('');
+  }
+
+  function drawRegulationStripes(stripes, regulationValue) {
+    const color = LEGENDS.regulation[regulationValue].color;
+    const label = LEGENDS.regulation[regulationValue].label;
+    return stripes.map(s => fadingRect(
+      dateToX(s.start), dateToX(s.end) + dayWidth, PADDING_TOP, CHART_HEIGHT,
+      `url(#hatch-${regulationValue})`,
+      `class="regulation-stripe" stroke="${color}" stroke-width="0.8" stroke-opacity="0.5" data-label="${label}" data-start="${s.start}" data-end="${s.end}"`
+    )).join('');
+  }
+
+  function drawStageBars(intervals, opts) {
+    const { offsetY, lightenForecast, lightenPast, labelSuffix, stroke } = opts;
+    let html = '';
+    STAGE_RENDER_ORDER.forEach((stageId, row) => {
+      const y = PADDING_TOP + row * BAR_HEIGHT;
+      const s = LEGENDS.stages[stageId];
+      const h = BAR_HEIGHT - 8;
+      intervals.filter(iv => iv.stage === stageId).forEach(iv => {
+        const x1 = dateToX(iv.startDate);
+        const x2 = dateToX(iv.endDate) + dayWidth;
+        const isForecast = iv.startDate > todayStr;
+        const fill = lightenColor(s.color, isForecast ? lightenForecast : lightenPast);
+        const label = labelSuffix ? `${s.label} ${labelSuffix}` : s.label;
+        html += fadingRect(x1, x2, y + 4 + offsetY, h, fill,
+          `class="gantt-bar" stroke="${stroke}" stroke-width="0.5" data-label="${label}" data-start="${iv.startDate}" data-end="${iv.endDate}" data-forecast="${isForecast}"`, 3);
+      });
+    });
+    return html;
+  }
+
+  dataLayer.innerHTML =
+    drawHealthHazard()
+    + drawRegulationStripes(buildRegulationStripes(dates, regulation, [1]), 1)
+    + drawRegulationStripes(buildRegulationStripes(dates, regulation, [3]), 3)
+    + drawStageBars(intervalsFast, {
+        offsetY: -Math.round((BAR_HEIGHT - 8) * 0.10),
+        lightenForecast: 0.65, lightenPast: 0.35,
+        labelSuffix: '(schnell)', stroke: '#0002'
+      })
+    + drawStageBars(intervalsMean, {
+        offsetY: 0,
+        lightenForecast: 0.40, lightenPast: 0,  // 0 → full color via lightenColor amount 0
+        labelSuffix: '', stroke: '#0003'
+      });
+
+  // ── Tooltip wiring (event delegation — one listener, survives re-renders) ──
+  const ganttWrap = document.getElementById('gantt-wrap');
+  const tooltip   = document.getElementById('gantt-tooltip');
+
+  function showTooltip(e, html) {
+    tooltip.style.display = 'block';
+    tooltip.style.left    = (e.clientX + 14) + 'px';
+    tooltip.style.top     = (e.clientY - 10) + 'px';
+    tooltip.innerHTML     = html;
+  }
+  function hideTooltip() { tooltip.style.display = 'none'; }
+
+  ganttWrap._ttMove = ganttWrap._ttMove || ganttWrap.addEventListener('mousemove', e => {
+    const el = e.target.closest('[data-label]');
+    if (!el) { hideTooltip(); return; }
+    const { label, start, end, forecast } = el.dataset;
+    const isHazard   = el.classList.contains('health-hazard-bg');
+    const forecastTxt = forecast === 'true' ? '<br><em style="color:#aaa">(Forecast)</em>' : '';
+    showTooltip(e,
+      isHazard
+        ? `<strong>Gesundheitsgefährdung Brennhaare</strong><br>${formatDateGerman(start)} – ${formatDateGerman(end)}`
+        : `<strong>${label}</strong><br>${formatDateGerman(start)} – ${formatDateGerman(end)}${forecastTxt}`
+    );
+  });
+  ganttWrap._ttLeave = ganttWrap._ttLeave || ganttWrap.addEventListener('mouseleave', hideTooltip);
+}
+
+
+// ============================================================
+// TABLE RENDERER
+// ============================================================
+
+// Full row definitions matching the PDF, in top-to-bottom order.
+// stageId: matches LEGENDS.stages key (null = no server data for this row)
+// regOverride: fixed regulation value (0-3) if not derived from server data
+const TABLE_ROWS = [
+  {
+    key:       'knospenschwellen',
+    label:     "Knospenschwellen der Stieleiche",
+    stageId:   null,
+    info:      "Fraß potenziell erstmals möglich",
+    regFixed:  0,
+    stageColor: "#AAAAAA"
+  },
+  {
+    key:       'blattentfaltung',
+    label:     "Blattentfaltung der Stieleiche",
+    stageId:   null,
+    info:      "Blattgröße ca. 2,5 cm Durchmesser",
+    regFixed:  1,
+    stageColor: "#AAAAAA"
+  },
+  {
+    key:       'l1schlupf',
+    label:     "1. Larvenstadium (Schlupf)",
+    stageId:   1,
+    info:      "Keine Gesundheitsgefahr durch frische Brennhaare,\nMortalität in Hungerphase bis Knospenschwellen",
+    regFixed:  0,
+    stageColor: null
+  },
+  {
+    key:       'frassbeginn',
+    label:     "1. Larvenstadium (Fraßbeginn)",
+    stageId:   null,
+    info:      "Entspricht Zeitpunkt des Knospenschwellens bzw. Schlupfs, falls dieser später eintritt als Knospenschwellen",
+    regFixed:  0,
+    stageColor: LEGENDS.stages[1].color
+  },
+  {
+    key:       'l2',
+    label:     "2. Larvenstadium",
+    stageId:   2,
+    info:      "Keine Gesundheitsgefahr durch frische Brennhaare",
+    regFixed:  1,
+    stageColor: null
+  },
+  {
+    key:       'l3',
+    label:     "3. Larvenstadium",
+    stageId:   3,
+    info:      "Beginn Brennhaarbildung, beginnende Gesundheitsgefahr",
+    regFixed:  1,
+    stageColor: null
+  },
+  {
+    key:       'l4',
+    label:     "4. Larvenstadium",
+    stageId:   4,
+    info:      "Zunahme Brennhaarbildung, deutliche Gesundheitsgefahr",
+    regFixed:  0,
+    stageColor: null
+  },
+  {
+    key:       'l5',
+    label:     "5. Larvenstadium",
+    stageId:   5,
+    info:      "Weitere Zunahme Brennhaarbildung, hohe Gesundheitsgefahr",
+    regFixed:  0,
+    stageColor: null
+  },
+  {
+    key:       'l6',
+    label:     "6. Larvenstadium",
+    stageId:   6,
+    info:      "Höchste Brennhaarmenge und Gesundheitsgefahr",
+    regFixed:  0,
+    stageColor: null
+  },
+  {
+    key:       'puppe',
+    label:     "Puppenstadium",
+    stageId:   7,
+    info:      "Immobiles Stadium",
+    regFixed:  3,
+    stageColor: null
+  },
+  {
+    key:       'falter',
+    label:     "Schlupf der Falter (Adultstadium)",
+    stageId:   8,
+    info:      "50 % der Falter geschlüpft",
+    regFixed:  0,
+    stageColor: null
+  },
+  {
+    key:       'eistadium',
+    label:     "Eistadium",
+    stageId:   0,
+    info:      "Überwinterungsstadium",
+    regFixed:  0,
+    stageColor: null
+  }
+];
+
+// Regulation label display text (short form matching PDF)
+const REG_DISPLAY = {
+  0: "Keine *",
+  1: "Präventive Maßnahmen",
+  2: "Präventiv nicht mehr zielführend",
+  3: "Mechanische Maßnahmen"
+};
+
+function fillTableData(dates, stagesMean, stagesFast, regulation, bbch) {
+  const todayStr      = getToday();
+  const intervalsMean = buildIntervals(dates, stagesMean);
+
+  // Start date of a Gantt stage (mean development)
+  function stageStart(stageId) {
+    const iv = intervalsMean.find(iv => iv.stage === stageId);
+    return iv ? iv.startDate : null;
+  }
+
+  // Eistadium that appears AFTER the Falter interval (stageId 8)
+  function eistadiumAfterFalter() {
+    const falterIv = intervalsMean.find(iv => iv.stage === 8);
+    if (!falterIv) return null;
+    const eiAfter = intervalsMean.find(iv => iv.stage === 0 && iv.startDate > falterIv.startDate);
+    return eiAfter ? eiAfter.startDate : null;
+  }
+
+  // Fraßbeginn = max(Knospenschwellen, L1 Schlupf) — i.e. whichever is later
+  function frassbeginn() {
+    const knospen = bbch?.knospenschwellen ?? null;
+    const l1      = stageStart(1);
+    if (!knospen && !l1) return null;
+    if (!knospen) return l1;
+    if (!l1) return knospen;
+    return knospen >= l1 ? knospen : l1;
+  }
+
+  // Build a resolved date for every row
+  function resolveDate(row) {
+    if (row.key === 'knospenschwellen') return bbch?.knospenschwellen ?? null;
+    if (row.key === 'blattentfaltung')  return bbch?.blattentfaltung  ?? null;
+    if (row.key === 'frassbeginn')      return frassbeginn();
+    if (row.key === 'eistadium')        return eistadiumAfterFalter();
+    return row.stageId !== null ? stageStart(row.stageId) : null;
+  }
+
+  // Build dynamic info text (mortality injected into L1 Schlupf when Knospenschwellen is known)
+  function resolveInfo(row) {
+    if (row.key === 'l1schlupf') {
+      const hasDatum   = bbch?.knospenschwellen != null;
+      const mortalityV = bbch?.mortality;
+      const pct = (hasDatum && mortalityV !== null && mortalityV !== undefined)
+        ? `${Math.round(mortalityV)} %`
+        : (hasDatum ? '– %' : null);
+      const mortalityLine = pct
+        ? `Mortalität in Hungerphase bis Knospenschwellen: <strong>${pct}</strong>`
+        : 'Mortalität in Hungerphase bis Knospenschwellen: –';
+      return `Keine Gesundheitsgefahr durch frische Brennhaare,<br>${mortalityLine}`;
+    }
+    return row.info.replace(/\n/g, '<br>');
+  }
+
+  function fmtDate(dateStr) {
+    if (!dateStr) return '<span class="cell-empty">–</span>';
+    const isForecast = dateStr > todayStr;
+    const txt = formatDateGerman(dateStr);
+    return isForecast ? `<span class="cell-forecast">${txt}</span>` : txt;
+  }
+
+  function tint(hex, alpha = 0.15) {
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  // Attach resolved dates, then sort: rows with dates first (ascending), nulls after (original order)
+  const rowsWithDates = TABLE_ROWS.map((row, originalIndex) => ({
+    ...row,
+    resolvedDate: resolveDate(row),
+    originalIndex
+  }));
+
+  const withDate    = rowsWithDates.filter(r => r.resolvedDate !== null).sort((a, b) => a.resolvedDate.localeCompare(b.resolvedDate));
+  const withoutDate = rowsWithDates.filter(r => r.resolvedDate === null).sort((a, b) => a.originalIndex - b.originalIndex);
+  const sorted      = [...withDate, ...withoutDate];
+
+  const tbody = document.getElementById('eps-table-body');
+  tbody.innerHTML = sorted.map(row => {
+    const stageColor = row.stageColor ?? LEGENDS.stages[row.stageId]?.color ?? '#AAAAAA';
+    const regColor   = LEGENDS.regulation[row.regFixed]?.color ?? '#DDDDDD';
+    const stageBg    = tint(stageColor, 0.15);
+    const regBg      = tint(regColor,   0.18);
+
+    return `<tr>
+      <td class="col-stage" style="background:${stageBg}">${row.label}</td>
+      <td class="col-date"  style="background:${stageBg}">${fmtDate(row.resolvedDate)}</td>
+      <td class="col-info"  style="background:${stageBg}">${resolveInfo(row)}</td>
+      <td class="col-reg"   style="background:${regBg}">${REG_DISPLAY[row.regFixed] ?? '–'}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ============================================================
+// PNG EXPORT  (html-to-image — captures the active modal panel as-is)
+// ============================================================
+
+async function exportPng() {
+  const isGantt = document.getElementById('gantt-panel').classList.contains('active');
+  const panel   = document.getElementById(isGantt ? 'gantt-panel' : 'table-panel');
+  if (!panel || typeof htmlToImage === 'undefined') {
+    console.error('html-to-image not loaded or panel missing');
+    return;
+  }
+
+  const btn = document.getElementById('print-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    const dataUrl = await htmlToImage.toPng(panel, {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      // skip the loading spinner if somehow visible
+      filter: (node) => node.id !== 'chart-loading-overlay'
+    });
+    const a = document.createElement('a');
+    a.download = `EPS_${isGantt ? 'Grafik' : 'Tabelle'}_${yearSelect.value}.png`;
+    a.href = dataUrl;
+    a.click();
+  } catch (err) {
+    console.error('Export failed:', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Export'; }
+  }
+}
+
+
+// ============================================================
+// MODAL CONTROLLER
+// ============================================================
+
+const modalOverlay = document.getElementById('modal-overlay');
+
+function openModal()  { modalOverlay.classList.add('open'); }
+function closeModal() {
+  modalOverlay.classList.remove('open');
+  document.getElementById('gantt-tooltip').style.display = 'none';
+}
+
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+// Year selector — populate on load
+const yearSelect  = document.getElementById('year-select');
+const currentYear = new Date(getToday()).getFullYear();
+
+for (let y = currentYear; y >= currentYear - 5; y--) {
+  const option       = document.createElement('option');
+  option.value       = y;
+  option.textContent = y;
+  if (y === currentYear) option.selected = true;
+  yearSelect.appendChild(option);
+}
+
+// Builds the chart date range for a given year (Jan 31 – Sep 30) — always full range
+function buildChartDates(year) {
+  const dates = [];
+  const start = new Date(`${year}-01-31`);
+  const end   = new Date(`${year}-09-30`);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+// Returns the dates actually fetched from WMS — capped at today + 6 days
+function buildFetchDates(dates) {
+  const cap = new Date(getToday());
+  cap.setDate(cap.getDate() + 6);
+  const capStr = cap.toISOString().split('T')[0];
+  return dates.filter(d => d <= capStr);
+}
+
+function showLoadingOverlay()  {
+  document.getElementById('chart-loading-overlay').classList.add('visible');
+}
+function hideLoadingOverlay()  {
+  document.getElementById('chart-loading-overlay').classList.remove('visible');
+}
+
+async function loadAndRenderChart(latlng) {
+  const year       = +yearSelect.value;
+  const dates      = buildChartDates(year);       // full Jan 31 – Sep 30 axis
+  const fetchDates = buildFetchDates(dates);      // capped at today + 6 for WMS
+
+  // 1. Show modal immediately with skeleton, reset title but keep active tab
+  document.getElementById('chart-area').style.display = 'block';
+  document.getElementById('eps-table-body').innerHTML = '';
+  // Only reset to Grafik tab on a fresh map click (modal not yet open)
+  if (!modalOverlay.classList.contains('open')) switchTab('gantt-panel');
+  drawChartSkeleton(dates);
+  showLoadingOverlay();
+  openModal();
+
+  // 2. Fetch chart data (capped) + BBCH phenology dates in parallel
+  try {
+    const [chartData, bbch] = await Promise.all([
+      fetchAllChartData(latlng, fetchDates),
+      fetchBbchDates(latlng, year)
+    ]);
+    // Pad fetched arrays back to full dates length with nulls
+    const pad = (arr) => {
+      const padded = Array(dates.length).fill(null);
+      arr.forEach((v, i) => { padded[i] = v; });
+      return padded;
+    };
+    const stagesMean = pad(chartData.stagesMean);
+    const stagesFast = pad(chartData.stagesFast);
+    const regulation = pad(chartData.regulation);
+    fillChartData(dates, stagesMean, stagesFast, regulation);
+    fillTableData(dates, stagesMean, stagesFast, regulation, bbch);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('gantt-wrap').innerHTML =
+      '<p style="color:#c00; font-size:12px; padding:20px 0">Fehler beim Laden der Daten.</p>';
+  } finally {
+    hideLoadingOverlay();
+  }
+}
+
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+
+function switchTab(targetId) {
+  document.querySelectorAll('.modal-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === targetId);
+  });
+  document.querySelectorAll('.modal-tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === targetId);
+  });
+}
+
+document.querySelectorAll('.modal-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+
+// ============================================================
+// MAP CLICK HANDLER
+// ============================================================
+
+let lastClickedLatLng = null;
+
+// Fetches municipality name for a clicked point from DWD Warngebiete layer
+async function fetchLocationName(latlng) {
+  const [mx, my] = wgs84ToWebMercator(latlng.lat, latlng.lng);
+  const half     = 1000;
+  const bbox     = `${mx - half},${my - half},${mx + half},${my + half}`;
+  const params   = new URLSearchParams({
+    service:      "WMS",
+    version:      "1.1.1",
+    request:      "GetFeatureInfo",
+    layers:       "Warngebiete_Gemeinden",
+    styles:       "",
+    srs:          "EPSG:3857",
+    bbox,
+    width:        "101",
+    height:       "101",
+    query_layers: "Warngebiete_Gemeinden",
+    info_format:  "application/json",
+    x:            "50",
+    y:            "50"
+  });
+  try {
+    const res  = await fetch("https://maps.dwd.de/geoserver/dwd/wms?" + params);
+    const data = await res.json();
+    const feat = data.features?.[0];
+    if (!feat) return null;
+    // Try common property names for municipality
+    return feat.properties?.NAME
+        || feat.properties?.GEN
+        || feat.properties?.name
+        || feat.properties?.GEMEINDE
+        || null;
+  } catch {
+    return null;
+  }
+}
+
+function updatePanelTitles(latlng, year, locationName) {
+  const title  = `Entwicklung des Eichenprozessionsspinners ${year}`;
+  const coords = `${latlng.lat.toFixed(5)}° N, ${latlng.lng.toFixed(5)}° E`;
+  const loc    = locationName || '';
+  document.getElementById('panel-title-text').textContent  = title;
+  document.getElementById('table-title-text').textContent  = title;
+  document.getElementById('modal-coords').textContent      = coords;
+  document.getElementById('table-coords').textContent      = coords;
+  document.getElementById('gantt-location').textContent    = loc;
+  document.getElementById('table-location').textContent    = loc;
+}
+
+let lastLocationName  = null;
+
+map.on('click', async function (e) {
+  const latlng = e.lngLat;   // MapLibre: {lng, lat} — same .lat/.lng shape used below
+  lastClickedLatLng = latlng;
+  lastLocationName  = null;
+  updatePanelTitles(latlng, +yearSelect.value, null);
+  // Fetch location name async — updates title when it arrives
+  fetchLocationName(latlng).then(name => {
+    lastLocationName = name;
+    updatePanelTitles(latlng, +yearSelect.value, name);
+  });
+  await loadAndRenderChart(latlng);
+});
+
+yearSelect.addEventListener('change', async () => {
+  if (!lastClickedLatLng) return;
+  updatePanelTitles(lastClickedLatLng, +yearSelect.value, lastLocationName);
+  await loadAndRenderChart(lastClickedLatLng);
+});
+
+
+// ============================================================
+// INITIAL RENDER
+// ============================================================
+
+// Initial render with fallback timeline, then try to fetch real dates from server.
+// showLayer() calls map.addSource()/addLayer(), which need the style to be
+// ready first — unlike Leaflet's L.tileLayer.wms(), which could be added anytime.
+map.on('load', () => {
+  updateSliderTrackFill();
+  showLayer(selectedLayerKey, TIMELINE_TODAY_INDEX);
+
+  fetchAvailableDates().then(dates => {
+    if (dates && dates.length > 1) {
+      ALL_TIMELINE_DATES = dates;
+      rebuildTimeline(filterToRecentYears(dates, 2));
+    }
+  });
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "_hinweis": "PLATZHALTER-DATEN – Beispiel-Messstationen. Durch echte Bodenfeuchte-Standorte ersetzen.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Messstation Altensteig", "stationId": "station_altensteig" },
+      "geometry": { "type": "Point", "coordinates": [8.57, 48.57] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Messstation Conventwald", "stationId": "station_conventwald" },
+      "geometry": { "type": "Point", "coordinates": [7.95, 48.0] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Messstation Welzheim", "stationId": "station_welzheim" },
+      "geometry": { "type": "Point", "coordinates": [9.63, 48.87] }
+    }
+  ]
+}
