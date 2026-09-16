@@ -1,0 +1,317 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.370974,
+          48.776587
+        ]
+      },
+      "properties": {
+        "label": "Rotenfels Fichte",
+        "popup_name": "Rotenfels Fichte",
+        "standort": "Rotenfels",
+        "baumart": "Fichte",
+        "hoehe_m": 600,
+        "hangneigung_grad": 25,
+        "bodentyp": "Podsol",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.699794,
+          49.451872
+        ]
+      },
+      "properties": {
+        "label": "Heidelberg Fichte",
+        "popup_name": "Heidelberg Fichte",
+        "standort": "Heidelberg",
+        "baumart": "Fichte",
+        "hoehe_m": 511,
+        "hangneigung_grad": 8,
+        "bodentyp": "Podsolierte Braunerde bis Parabraunerde",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.899168,
+          47.981975
+        ]
+      },
+      "properties": {
+        "label": "Conventwald Fichte",
+        "popup_name": "Conventwald Fichte",
+        "standort": "Conventwald",
+        "baumart": "Fichte",
+        "hoehe_m": 816,
+        "hangneigung_grad": 22,
+        "bodentyp": "Braunerde",
+        "wasserhaushalt_verfuegbar": true,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.885653,
+          48.000152
+        ]
+      },
+      "properties": {
+        "label": "Ochsenhausen Fichte geduengt",
+        "popup_name": "Ochsenhausen Fichte geduengt",
+        "standort": "Ochsenhausen",
+        "baumart": "Fichte_geduengt",
+        "hoehe_m": 682,
+        "hangneigung_grad": 1,
+        "bodentyp": "Pseudogley-Parabraunerde",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.389166,
+          48.737103
+        ]
+      },
+      "properties": {
+        "label": "Esslingen Fichte",
+        "popup_name": "Esslingen Fichte",
+        "standort": "Esslingen",
+        "baumart": "Fichte",
+        "hoehe_m": 345,
+        "hangneigung_grad": 6,
+        "bodentyp": "Braunerde",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.571913,
+          48.579982
+        ]
+      },
+      "properties": {
+        "label": "Altensteig Fichte",
+        "popup_name": "Altensteig Fichte",
+        "standort": "Altensteig",
+        "baumart": "Fichte",
+        "hoehe_m": 512,
+        "hangneigung_grad": 9,
+        "bodentyp": "Braunerde",
+        "wasserhaushalt_verfuegbar": true,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.706231,
+          49.42988
+        ]
+      },
+      "properties": {
+        "label": "Heidelberg Buche",
+        "popup_name": "Heidelberg Buche",
+        "standort": "Heidelberg",
+        "baumart": "Buche",
+        "hoehe_m": 390,
+        "hangneigung_grad": 11,
+        "bodentyp": "Pseudogley-Braunerde",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#C8E6A0",
+        "fillOpacity": 0.85,
+        "color": "#5B8C3A",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.903903,
+          47.980621
+        ]
+      },
+      "properties": {
+        "label": "Conventwald Bannwald Buche",
+        "popup_name": "Conventwald Bannwald Buche",
+        "standort": "Conventwald",
+        "baumart": "Bannwald_Buche",
+        "hoehe_m": 811,
+        "hangneigung_grad": 19,
+        "bodentyp": "Braunerde",
+        "wasserhaushalt_verfuegbar": true,
+        "radius": 7,
+        "fillColor": "#C8E6A0",
+        "fillOpacity": 0.85,
+        "color": "#5B8C3A",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.917117,
+          47.974701
+        ]
+      },
+      "properties": {
+        "label": "Ochsenhausen Buche",
+        "popup_name": "Ochsenhausen Buche",
+        "standort": "Ochsenhausen",
+        "baumart": "Buche",
+        "hoehe_m": 696,
+        "hangneigung_grad": 3,
+        "bodentyp": "Parabraunerde-Pseudogley",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#C8E6A0",
+        "fillOpacity": 0.85,
+        "color": "#5B8C3A",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.616954,
+          48.54521
+        ]
+      },
+      "properties": {
+        "label": "Altensteig Buche",
+        "popup_name": "Altensteig Buche",
+        "standort": "Altensteig",
+        "baumart": "Buche",
+        "hoehe_m": 492,
+        "hangneigung_grad": 3,
+        "bodentyp": "Braunerde-Pseudogley",
+        "wasserhaushalt_verfuegbar": true,
+        "radius": 7,
+        "fillColor": "#C8E6A0",
+        "fillOpacity": 0.85,
+        "color": "#5B8C3A",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.375469,
+          48.746833
+        ]
+      },
+      "properties": {
+        "label": "Esslingen Buche",
+        "popup_name": "Esslingen Buche",
+        "standort": "Esslingen",
+        "baumart": "Buche",
+        "hoehe_m": 327,
+        "hangneigung_grad": 12,
+        "bodentyp": "Braunerde-Pseudogley",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#C8E6A0",
+        "fillOpacity": 0.85,
+        "color": "#5B8C3A",
+        "weight": 2,
+        "opacity": 1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.942594,
+          47.965695
+        ]
+      },
+      "properties": {
+        "label": "Ochsenhausen Fichte Null",
+        "popup_name": "Ochsenhausen Fichte Null",
+        "standort": "Ochsenhausen",
+        "baumart": "Fichte_Null",
+        "hoehe_m": 650,
+        "hangneigung_grad": 0,
+        "bodentyp": "Pseudogley-Parabraunerde",
+        "wasserhaushalt_verfuegbar": false,
+        "radius": 7,
+        "fillColor": "#9FD8C8",
+        "fillOpacity": 0.85,
+        "color": "#2F7A66",
+        "weight": 2,
+        "opacity": 1
+      }
+    }
+  ]
+}

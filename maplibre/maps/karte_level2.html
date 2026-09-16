@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Level II Bodenfeuchtemonitoring – Karte</title>
+
+  <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
+  <link rel="stylesheet" href="../base/basemap.css?v=20260908" />
+
+  <!--
+    Nur für diese Karte: Tabs + Grafik im Standort-Popup.
+    Bewusst hier und nicht in basemap.css, weil kein anderer Kartentyp
+    das (noch) braucht - siehe Kommentar in karte_basemap.html.
+  -->
+  <style>
+    /* Breite wird pro Popup dynamisch in JS gesetzt (~90% der Kartenbreite);
+       das hier ist nur der Fallback, falls JS aus irgendeinem Grund nicht greift. */
+    .fva-popup--level2 .fva-popup__body { width: 480px; max-width: 90vw; }
+
+    .wh-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: #555; margin-bottom: 10px; }
+    .wh-meta b { color: #222; }
+
+    .wh-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ddd; margin-bottom: 8px; }
+    .wh-tab {
+      appearance: none; border: none; background: none; cursor: pointer;
+      padding: 6px 12px; font-size: 13px; color: #666; border-bottom: 2px solid transparent;
+      font-family: inherit;
+    }
+    .wh-tab:hover { color: #2F6B4F; }
+    .wh-tab--active { color: #2F6B4F; border-bottom-color: #2F6B4F; font-weight: 600; }
+
+    .wh-chart { position: relative; }
+    .wh-chart svg { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+    .wh-tooltip {
+      position: absolute; z-index: 5; pointer-events: none; display: none;
+      background: rgba(255,255,255,0.97); border: 1px solid #ccc; border-radius: 4px;
+      padding: 5px 8px; font-size: 12px; line-height: 1.5; color: #222;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15); white-space: nowrap;
+    }
+    .wh-tooltip b { display: block; margin-bottom: 2px; }
+
+    .wh-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: #555; margin-top: 6px; }
+    .wh-legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .wh-legend i { width: 12px; height: 8px; display: inline-block; border-radius: 2px; flex: none; }
+    .wh-legend i.wh-legend--line { height: 2px; border-radius: 0; }
+
+    .wh-hint, .wh-loading { font-size: 13px; color: #777; padding: 10px 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="../vendor/maplibre-gl.js"></script>
+  <script src="../base/basemap.js?v=20260908"></script>
+  <script>
+    /**
+     * Level II – Bodenfeuchtemonitoring
+     * -----------------------------------------------------------------
+     * Standorte der Level-II-Flächen (Buche/Fichte, mehrere Bodentiefen je
+     * Standort). Klick-Popup zeigt Wasserhaushalt (%nFK) als Grafik mit
+     * einem Tab pro Bodentiefe - ersetzt die früheren Einzel-Exporte.
+     * Geodaten:
+     *   data/level2_standorte.geojson
+     * Grafikdaten pro Standort (zwei CSVs, wie besprochen):
+     *   data/<Standort>_quartal.csv   Referenzverlauf, 1x jährlich neu
+     *   data/<Standort>_aktuell.csv   Tageswerte, laufend aktualisiert
+     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende steht in
+     * LEGEND_ITEMS.
+     * -----------------------------------------------------------------
+     */
+
+    const STANDORTE_URL = "./data/level2_standorte.geojson";
+    const DATA_DIR = "./data/";
+
+    const LEGEND_TITLE = "Baumart";
+    const LEGEND_ITEMS = [
+      { color: "#C8E6A0", label: "Buche" },
+      { color: "#9FD8C8", label: "Fichte" },
+    ];
+
+    initMap();
+
+    function initMap() {
+      const map = FVAMap.create({
+        container: "map",
+        // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+        ariaLabel: "Level II Bodenfeuchtemonitoring – Standorte und Wasserhaushalt",
+      });
+
+      const tooltip = FVAMap.createHoverTooltip(map);
+
+      map.on("load", () => {
+        map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
+
+        // Diagnose: prüft einmalig, ob die geladenen Features das erwartete
+        // Schema haben (label/popup_name/standort/baumart/wasserhaushalt_verfuegbar).
+        // Meldet sich laut in der Konsole, statt später still "undefined" zu zeigen.
+        map.once("sourcedata", function checkSchema(e) {
+          if (e.sourceId !== "standorte" || !map.isSourceLoaded("standorte")) return;
+          map.off("sourcedata", checkSchema);
+          const feats = map.querySourceFeatures("standorte");
+          if (!feats.length) {
+            console.error(
+              `[karte_level2] "${STANDORTE_URL}" lieferte 0 Features. ` +
+              `Prüfen: liegt die Datei wirklich unter diesem Pfad (Netzwerk-Tab, Status 200)?`
+            );
+            return;
+          }
+          const p = feats[0].properties;
+          const required = ["label", "popup_name", "standort", "baumart", "wasserhaushalt_verfuegbar"];
+          const missing = required.filter((k) => !(k in p));
+          if (missing.length) {
+            console.error(
+              `[karte_level2] "${STANDORTE_URL}" hat nicht das erwartete Schema - ` +
+              `es fehlen: ${missing.join(", ")}. Vermutlich liegt hier noch eine ältere ` +
+              `geojson-Version (z.B. das ursprüngliche "standorte.geojson") statt der für ` +
+              `diese Karte erzeugten "level2_standorte.geojson". Gefundene properties:`, p
+            );
+          }
+        });
+
+        map.addLayer({
+          id: "standorte-punkte",
+          type: "circle",
+          source: "standorte",
+          paint: {
+            "circle-radius": [
+              "case", ["boolean", ["feature-state", "hover"], false],
+              ["+", ["get", "radius"], 4], ["get", "radius"],
+            ],
+            "circle-color": ["get", "fillColor"],
+            "circle-opacity": ["get", "fillOpacity"],
+            "circle-stroke-color": ["get", "color"],
+            "circle-stroke-width": [
+              "case", ["boolean", ["feature-state", "hover"], false],
+              ["+", ["get", "weight"], 1.5], ["get", "weight"],
+            ],
+            "circle-stroke-opacity": ["get", "opacity"],
+          },
+        });
+
+        FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
+
+        // -- Standorte: Hover-Tooltip (Name) -----------------------------
+        map.on("mousemove", "standorte-punkte", (e) => {
+          const p = e.features[0].properties;
+          const name = p.label || p.popup_name || p.name || [p.standort, p.baumart].filter(Boolean).join(" ") || "Standort";
+          tooltip.show(`<div class="fva-tooltip__title">${name}</div>`, e.point, { html: true });
+        });
+        map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
+
+        // -- Klick-Popup: Metadaten + Wasserhaushalts-Grafik -------------
+        map.on("click", "standorte-punkte", (e) => {
+          openStandortPopup(map, e.lngLat, e.features[0].properties);
+        });
+
+        // -- Legende (Standardformat, immer unten rechts) ----------------
+        FVAMap.addLegend(map, {
+          title: LEGEND_TITLE,
+          items: LEGEND_ITEMS,
+        });
+      });
+    }
+
+    /** Öffnet das Popup für einen Level-II-Standort (Hülle + Metadaten + Grafik). */
+    function openStandortPopup(map, lngLat, props) {
+      const root = document.createElement("div");
+      root.className = "fva-popup fva-popup--large fva-popup--level2";
+
+      const displayName =
+        props.popup_name || props.label || props.name ||
+        [props.standort, props.baumart].filter(Boolean).join(" ") || "Standort";
+
+      const header = document.createElement("div");
+      header.className = "fva-popup__header";
+      header.textContent = displayName;
+      root.appendChild(header);
+
+      const body = document.createElement("div");
+      body.className = "fva-popup__body";
+      // ~90% der Kartenbreite (5% Rand links/rechts) statt fixer Breite -
+      // die Grafik darf fast die ganze Kartenbreite nutzen.
+      body.style.width = Math.round(map.getContainer().clientWidth * 0.9) + "px";
+      root.appendChild(body);
+
+      const meta = document.createElement("div");
+      meta.className = "wh-meta";
+      meta.innerHTML =
+        (props.hoehe_m != null ? `<span><b>${props.hoehe_m} m</b> ü. NN</span>` : "") +
+        (props.hangneigung_grad != null ? `<span>Hangneigung <b>${props.hangneigung_grad}°</b></span>` : "") +
+        (props.bodentyp ? `<span><b>${props.bodentyp}</b></span>` : "");
+      body.appendChild(meta);
+
+      const chartWrap = document.createElement("div");
+      chartWrap.className = "wh-loading";
+      chartWrap.textContent = "Lade Wasserhaushalt …";
+      body.appendChild(chartWrap);
+
+      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "none" })
+        .setLngLat(lngLat)
+        .setDOMContent(root)
+        .addTo(map);
+
+      const reposition = () => popup.setLngLat(lngLat);
+
+      // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
+      // Namen ableiten ("Altensteig Buche" -> "Altensteig").
+      const standort = props.standort || displayName.split(" ")[0];
+
+      if (props.wasserhaushalt_verfuegbar === false) {
+        chartWrap.className = "wh-hint";
+        chartWrap.textContent = "Wasserhaushalts-Grafik für diesen Standort folgt in Kürze.";
+        requestAnimationFrame(reposition);
+        return;
+      }
+
+      WHChart.loadStandortData(standort, DATA_DIR)
+        .then((data) => {
+          const tiefen = WHChart.getTiefen(data, props.baumart);
+          if (!tiefen.length) throw new Error(`keine Tiefen für Baumart "${props.baumart}" in den CSV-Daten von ${standort}`);
+          buildTabs(chartWrap, data, { ...props, standort }, tiefen, reposition);
+        })
+        .catch((err) => {
+          console.error("[karte_level2] Wasserhaushalt konnte nicht geladen werden:", err);
+          chartWrap.className = "wh-hint";
+          // Fehlertext bewusst sichtbar (statt generischer Meldung) - zeigt
+          // sofort, ob z.B. der Standort-Name oder der Datenpfad nicht stimmt.
+          chartWrap.textContent = "Wasserhaushalts-Grafik nicht verfügbar: " + err.message;
+        })
+        .finally(() => requestAnimationFrame(reposition));
+    }
+
+    /** Baut die Tiefen-Tabs + Chart-Container und zeichnet die erste Tiefe. */
+    function buildTabs(container, data, props, tiefen, reposition) {
+      container.className = "";
+      container.innerHTML = "";
+
+      const tabs = document.createElement("div");
+      tabs.className = "wh-tabs";
+      container.appendChild(tabs);
+
+      const chartDiv = document.createElement("div");
+      chartDiv.className = "wh-chart";
+      container.appendChild(chartDiv);
+
+      const legend = document.createElement("div");
+      legend.className = "wh-legend";
+      legend.innerHTML = [
+        ["#00BFFF", "Sehr feucht (Q90-max)"],
+        ["#87CEEB", "Feucht (Q75-Q90)"],
+        ["#D3D3D3", "Normal (Q25-Q75)"],
+        ["#F5F5DC", "Trocken (Q25-Q10)"],
+        ["#F4C2C2", "Sehr trocken (min-Q10)"],
+      ].map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("") +
+        [
+          ["#737373", "Median (2010\u20132025)"],
+          ["#D7263D", "Aktuelle nFK"],
+        ].map(([c, l]) => `<span><i class="wh-legend--line" style="background:${c}"></i>${l}</span>`).join("");
+      container.appendChild(legend);
+
+      function selectTiefe(tiefe) {
+        [...tabs.children].forEach((btn) =>
+          btn.classList.toggle("wh-tab--active", Number(btn.dataset.tiefe) === tiefe)
+        );
+        WHChart.renderInto(chartDiv, data, props.baumart, tiefe, { standort: props.standort });
+        reposition();
+      }
+
+      tiefen.forEach((tiefe) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "wh-tab";
+        btn.dataset.tiefe = tiefe;
+        btn.textContent = tiefe + " cm";
+        btn.addEventListener("click", () => selectTiefe(tiefe));
+        tabs.appendChild(btn);
+      });
+
+      selectTiefe(tiefen[0]);
+    }
+  </script>
+
+  <!--
+    Wasserhaushalt-Grafik (Quantilband + Median + aktueller Verlauf) als
+    eigenständiges, abhängigkeitsfreies Modul - reine SVG-Zeichnung, kein
+    zusätzlicher Vendor-Baustein nötig. Nur von dieser Karte genutzt.
+  -->
+  <script>
+    const WHChart = (function () {
+      "use strict";
+
+      function parseCSV(text) {
+        const lines = text.replace(/\r\n/g, "\n").trim().split("\n");
+        const headers = lines[0].split(",");
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i]) continue;
+          const cols = lines[i].split(",");
+          const row = {};
+          headers.forEach((h, idx) => {
+            const v = cols[idx];
+            row[h] = v === "" || v === undefined ? null : v;
+          });
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function toNum(v) {
+        return v === null || v === undefined || v === "" ? null : parseFloat(v);
+      }
+
+      const cache = {};
+
+      function loadStandortData(standort, basePath) {
+        if (cache[standort]) return cache[standort];
+        const quartalUrl = `${basePath}${standort}_quartal.csv`;
+        const aktuellUrl = `${basePath}${standort}_aktuell.csv`;
+        cache[standort] = Promise.all([
+          fetch(quartalUrl).then((r) => {
+            if (!r.ok) throw new Error(`${quartalUrl} → HTTP ${r.status}`);
+            return r.text();
+          }),
+          fetch(aktuellUrl).then((r) => {
+            if (!r.ok) throw new Error(`${aktuellUrl} → HTTP ${r.status}`);
+            return r.text();
+          }),
+        ]).then(([quartalTxt, aktuellTxt]) => buildStandortData(quartalTxt, aktuellTxt));
+        return cache[standort];
+      }
+
+      function buildStandortData(quartalTxt, aktuellTxt) {
+        const quartal = {};
+        parseCSV(quartalTxt).forEach((r) => {
+          const b = r.Baumart, t = r.Tiefe_cm;
+          quartal[b] = quartal[b] || {};
+          quartal[b][t] = quartal[b][t] || [];
+          quartal[b][t].push({
+            tag: toNum(r.Tag_des_Jahres),
+            min: toNum(r.Min), q10: toNum(r.Q10), q25: toNum(r.Q25),
+            median: toNum(r.Median), q75: toNum(r.Q75), q90: toNum(r.Q90), max: toNum(r.Max),
+          });
+        });
+        Object.values(quartal).forEach((byTiefe) =>
+          Object.values(byTiefe).forEach((rows) => rows.sort((a, b) => a.tag - b.tag))
+        );
+
+        const aktuell = {};
+        parseCSV(aktuellTxt).forEach((r) => {
+          const b = r.Baumart, t = r.Tiefe_cm;
+          aktuell[b] = aktuell[b] || {};
+          aktuell[b][t] = aktuell[b][t] || [];
+          aktuell[b][t].push({ datum: r.Datum, wert: toNum(r.Aktuelle_nFK) });
+        });
+        Object.values(aktuell).forEach((byTiefe) =>
+          Object.values(byTiefe).forEach((rows) => rows.sort((a, b) => (a.datum < b.datum ? -1 : 1)))
+        );
+
+        return { quartal, aktuell };
+      }
+
+      function getTiefen(data, baumart) {
+        const t = data.quartal[baumart] ? Object.keys(data.quartal[baumart]) : [];
+        return t.map(Number).sort((a, b) => a - b);
+      }
+
+      function dayOfYear(dateStr) {
+        const d = new Date(dateStr + "T00:00:00");
+        const start = new Date(d.getFullYear(), 0, 1);
+        return Math.round((d - start) / 86400000) + 1;
+      }
+
+      const MONTH_TICKS = [
+        [1, "Jan"], [32, "Feb"], [63, "Mrz"], [91, "Apr"], [122, "Mai"], [153, "Jun"],
+        [183, "Jul"], [214, "Aug"], [245, "Sep"], [275, "Okt"], [306, "Nov"], [336, "Dez"],
+      ];
+
+      const W = 900, H = 340;
+      const M = { top: 12, right: 66, bottom: 40, left: 50 };
+      const PW = W - M.left - M.right;
+      const PH = H - M.top - M.bottom;
+
+      // Fixe hydrologische Schwellen (unabhängig von den Quantilen/vom Standort),
+      // exakt wie im Original.
+      const THRESHOLDS = [
+        { val: 20, color: "#C8642D" },  // sehr trocken/trocken
+        { val: 40, color: "#FAC83C" },  // trocken/normal
+        { val: 100, color: "#82D732" }, // feucht/nass
+      ];
+      const ZONES = [
+        { y0: 16, y1: 20, color: "#C8642D", label: "sehr trocken" },
+        { y0: 36, y1: 40, color: "#FAC83C", label: "trocken" },
+        { y0: 96, y1: 100, color: "#82D732", label: "feucht" },
+        { y0: 100, y1: 104, color: "#1E90FF", label: "nass" },
+      ];
+
+      /** Baut einen Pfad, der bei Datenlücken (Tageslücke > 1) unterbrochen wird,
+       *  statt die Lücke mit einer Geraden zu überbrücken. */
+      function pathWithGaps(rows, dayFn, valFn, xFn, yFn) {
+        let d = "";
+        let prevDay = null;
+        rows.forEach((r) => {
+          const day = dayFn(r);
+          const val = valFn(r);
+          if (val === null || val === undefined) { prevDay = null; return; }
+          d += (prevDay === null || day - prevDay > 1 ? "M" : "L") + xFn(day) + "," + yFn(val) + " ";
+          prevDay = day;
+        });
+        return d.trim();
+      }
+
+      const MONTH_NAMES = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+      function formatDayLabel(day) {
+        const d = new Date(2026, 0, 1);
+        d.setDate(d.getDate() + day - 1);
+        return `${d.getDate()}. ${MONTH_NAMES[d.getMonth()]}`;
+      }
+
+      /** Zeichnet die Grafik für (baumart, tiefe) in containerEl und verdrahtet
+       *  den Hover-Tooltip. containerEl wird dabei geleert und neu befüllt. */
+      function renderInto(containerEl, data, baumart, tiefe, opts) {
+        containerEl.innerHTML = "";
+        const qRows = (data.quartal[baumart] && data.quartal[baumart][tiefe]) || [];
+        const aRows = (data.aktuell[baumart] && data.aktuell[baumart][tiefe]) || [];
+        if (!qRows.length) {
+          containerEl.innerHTML = `<div class="wh-hint">Keine Daten für ${tiefe} cm.</div>`;
+          return;
+        }
+
+        const maxVal = Math.max(...qRows.map((r) => r.max));
+        const maxY = Math.ceil((maxVal * 1.08) / 20) * 20;
+
+        const x = (day) => M.left + ((day - 1) / 364) * PW;
+        const y = (val) => M.top + (1 - val / maxY) * PH;
+
+        function band(lowerKey, upperKey, color) {
+          const fwd = qRows.map((r) => `${x(r.tag)},${y(r[lowerKey])}`);
+          const bwd = [...qRows].reverse().map((r) => `${x(r.tag)},${y(r[upperKey])}`);
+          return `<polygon points="${fwd.concat(bwd).join(" ")}" fill="${color}" />`;
+        }
+
+        const bands =
+          band("q90", "max", "#00BFFF") +
+          band("q75", "q90", "#87CEEB") +
+          band("q25", "q75", "#D3D3D3") +
+          band("q10", "q25", "#F5F5DC") +
+          band("min", "q10", "#F4C2C2");
+
+        const medianPath = pathWithGaps(qRows, (r) => r.tag, (r) => r.median, x, y);
+        const median = `<path d="${medianPath}" fill="none" stroke="#737373" stroke-width="2" />`;
+
+        let aktuellPath = "";
+        let heute = "";
+        if (aRows.length) {
+          const d = pathWithGaps(aRows, (r) => dayOfYear(r.datum), (r) => r.wert, x, y);
+          aktuellPath = `<path d="${d}" fill="none" stroke="#D7263D" stroke-width="2" />`;
+
+          const last = aRows[aRows.length - 1];
+          const heuteTag = dayOfYear(last.datum);
+          const hx = x(heuteTag);
+          const label = last.datum.split("-").reverse().join(".");
+          const boxX0 = x(Math.max(1, heuteTag - 4));
+          heute =
+            // Volle Höhe gepunktet ...
+            `<line x1="${hx}" y1="${M.top}" x2="${hx}" y2="${H - M.bottom}" stroke="#000" stroke-width="1" stroke-dasharray="2,2" />` +
+            // ... lila Box, die oben exakt an der feucht/nass-Trennlinie (100) endet.
+            `<rect x="${boxX0}" y="${y(100)}" width="${hx - boxX0}" height="${y(70) - y(100)}" fill="#9370DB" fill-opacity="0.9" />` +
+            `<text x="${hx - 6}" y="${y(70) - 6}" font-size="9" fill="#fff" text-anchor="start" transform="rotate(-90 ${hx - 6} ${y(70) - 6})">Heute: ${label}</text>`;
+        }
+
+        // -- Schwellenlinien (fix, farbig) statt grauem Grid an diesen y-Werten --
+        const thresholdYs = THRESHOLDS.map((t) => t.val);
+        const grid = [];
+        for (let v = 0; v <= maxY; v += 20) {
+          if (thresholdYs.includes(v)) continue;
+          grid.push(`<line x1="${M.left}" y1="${y(v)}" x2="${W - M.right}" y2="${y(v)}" stroke="#e5e5e5" stroke-width="1" />`);
+        }
+        const thresholdLines = THRESHOLDS.filter((t) => t.val <= maxY)
+          .map((t) => `<line x1="${M.left}" y1="${y(t.val)}" x2="${W - M.right}" y2="${y(t.val)}" stroke="${t.color}" stroke-width="1.5" />`)
+          .join("");
+
+        const yTickLabels = [];
+        for (let v = 0; v <= maxY; v += 20) {
+          yTickLabels.push(`<text x="${M.left - 5}" y="${y(v) + 3}" font-size="9" fill="#666" text-anchor="end">${v}</text>`);
+        }
+
+        // -- Zonen-Beschriftungen rechts (Swatch + Text), wie im Original --
+        const zoneLabels = ZONES.filter((z) => z.y1 <= maxY * 1.2).map((z) => {
+          const cy = (y(z.y0) + y(z.y1)) / 2;
+          return `<rect x="${W - M.right + 6}" y="${cy - 4}" width="9" height="8" fill="${z.color}" />` +
+                 `<text x="${W - M.right + 18}" y="${cy + 3}" font-size="9" fill="#444">${z.label}</text>`;
+        }).join("");
+
+        const monthTicks = MONTH_TICKS.map(
+          ([day, label]) => `<text x="${x(day)}" y="${H - M.bottom + 14}" font-size="9" fill="#666" text-anchor="start">${label}</text>`
+        ).join("");
+
+        const xAxisTitle = `<text x="${M.left + PW / 2}" y="${H - 6}" font-size="10" fill="#444" text-anchor="middle">Tag des Jahres</text>`;
+        const yAxisTitle = `<text x="14" y="${M.top + PH / 2}" font-size="10" fill="#444" text-anchor="middle" transform="rotate(-90 14 ${M.top + PH / 2})">Pflanzenverfügbares Wasser (%nFK)</text>`;
+
+        const title = `${opts.standort} ${baumart.replace(/_/g, " ")} – ${tiefe} cm (%nFK)`;
+
+        const svgHTML = `
+<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${title}">
+  ${grid.join("")}
+  ${thresholdLines}
+  ${bands}
+  ${median}
+  ${aktuellPath}
+  ${heute}
+  ${zoneLabels}
+  ${yTickLabels.join("")}
+  ${monthTicks}
+  ${xAxisTitle}
+  ${yAxisTitle}
+  <rect x="${M.left}" y="${M.top}" width="${PW}" height="${PH}" fill="none" stroke="#ccc" stroke-width="1" />
+  <line class="wh-crosshair" x1="0" y1="${M.top}" x2="0" y2="${H - M.bottom}" stroke="#999" stroke-width="1" stroke-dasharray="2,2" style="display:none" />
+</svg>`;
+
+        containerEl.innerHTML = svgHTML;
+
+        // -- Hover-Tooltip: unified wie im Original (Datum + Median + Aktuell) --
+        const svgEl = containerEl.querySelector("svg");
+        const crosshair = containerEl.querySelector(".wh-crosshair");
+        const tooltip = document.createElement("div");
+        tooltip.className = "wh-tooltip";
+        containerEl.appendChild(tooltip);
+
+        const qByDay = new Map(qRows.map((r) => [r.tag, r.median]));
+        const aByDay = new Map(aRows.filter((r) => r.wert !== null).map((r) => [dayOfYear(r.datum), r.wert]));
+
+        function onMove(evt) {
+          const rect = svgEl.getBoundingClientRect();
+          const scale = rect.width / W;
+          if (!scale) return;
+          const dataX = (evt.clientX - rect.left) / scale;
+          const day = Math.min(365, Math.max(1, Math.round(1 + ((dataX - M.left) / PW) * 364)));
+
+          crosshair.setAttribute("x1", x(day));
+          crosshair.setAttribute("x2", x(day));
+          crosshair.style.display = "block";
+
+          const med = qByDay.get(day);
+          const akt = aByDay.get(day);
+          tooltip.innerHTML =
+            `<b>${formatDayLabel(day)}</b>` +
+            (med != null ? `Median: ${med}<br>` : "") +
+            (akt != null ? `Aktuell: ${akt}` : "");
+          tooltip.style.display = "block";
+
+          const containerRect = containerEl.getBoundingClientRect();
+          let left = evt.clientX - containerRect.left + 12;
+          let top = evt.clientY - containerRect.top - 10;
+          left = Math.min(left, containerRect.width - 120);
+          tooltip.style.left = left + "px";
+          tooltip.style.top = Math.max(0, top) + "px";
+        }
+
+        function onLeave() {
+          crosshair.style.display = "none";
+          tooltip.style.display = "none";
+        }
+
+        svgEl.addEventListener("mousemove", onMove);
+        svgEl.addEventListener("mouseleave", onLeave);
+      }
+
+      return { loadStandortData, buildStandortData, getTiefen, renderInto };
+    })();
+  </script>
+</body>
+</html>
