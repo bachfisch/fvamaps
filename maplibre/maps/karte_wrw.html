@@ -6,13 +6,15 @@
   <title>Wasserrückhalt im Wald – Karte</title>
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css?v=20260917" />
+  <link rel="stylesheet" href="../base/basemap.css" />
 </head>
 <body>
   <div id="map"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js?v=20260917"></script>
+  <script src="../base/basemap.js"></script>
+  <!-- Nur für den PNG-Export im Standort-Popup (siehe FVAMap.openModal). -->
+  <script src="../vendor/html-to-image.js"></script>
   <script>
     /**
      * WRW – Wasserrückhalt im Wald
@@ -22,146 +24,143 @@
      * Geodaten:
      *   data/wrw_landkreise.geojson
      *   data/wrw_standorte.geojson
-     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende steht in
-     * LEGEND_ITEMS.
+     * Beide GeoJSONs enthalten NUR noch echte Daten (Name/Hauptzielsetzung/
+     * Projektgemeinde bzw. Popup-Inhalte) - kein Styling mehr (color/weight/
+     * opacity/fillColor/fillOpacity/radius). Das war ohnehin überwiegend
+     * konstant bzw. 1:1 von hauptzielsetzung abhängig (per Skript geprüft),
+     * muss also nicht pro Feature wiederholt werden - siehe
+     * HAUPTZIELSETZUNG_STYLE unten (Kontur/Standorte sind komplett konstant,
+     * stehen deshalb direkt in den paint-Objekten, keine eigene Tabelle).
+     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende leitet
+     * FVAMap.addLegend (styleTable-Option) direkt aus HAUPTZIELSETZUNG_STYLE ab.
      * -----------------------------------------------------------------
      */
 
     const LANDKREISE_URL = "./data/wrw_landkreise.geojson";
     const STANDORTE_URL = "./data/wrw_standorte.geojson";
 
-    // Legende im Standardformat (Farbe + Beschriftung). Farben entsprechen
-    // den fillColor-Werten der Landkreis-Flächen (siehe wrw_landkreise.geojson).
+    // Einzige Quelle für Füllfarbe/-deckkraft der Landkreis-Flächen je
+    // Hauptzielsetzung (Randfarbe/-stärke/-deckkraft sind bei ALLEN Flächen
+    // gleich, stehen deshalb unten direkt im landkreise-line-paint statt
+    // hier). Reihenfolge bestimmt auch die Reihenfolge in der Legende.
+    const HAUPTZIELSETZUNG_STYLE = {
+      "Bestandesvitalität":      { fillColor: "#FFAEB9", fillOpacity: 0.5 },
+      "Erosionsschutz":          { fillColor: "#87CEEB", fillOpacity: 0.5 },
+      "Grundwasserneubildung":   { fillColor: "#90EE90", fillOpacity: 0.5 },
+      "Hochwasserschutz":        { fillColor: "#FFE7BA", fillOpacity: 0.5 },
+      "Ökologie/Feuchthabitate": { fillColor: "#FFA07A", fillOpacity: 0.5 },
+      "Kein Pilotprojekt":       { fillColor: "#BEBEBE", fillOpacity: 0.2 },
+    };
+    // Landkreis-Kontur und Maßnahmenstandorte sehen immer gleich aus (keine
+    // Kategorie-Abhängigkeit) - deshalb keine eigene Style-Tabelle dafür,
+    // die Werte stehen direkt unten in den jeweiligen paint-Objekten.
+
     const LEGEND_TITLE = "Hauptzielsetzung";
-    const LEGEND_ITEMS = [
-      { color: "#FFAEB9", label: "Bestandesvitalität" },
-      { color: "#87CEEB", label: "Erosionsschutz" },
-      { color: "#90EE90", label: "Grundwasserneubildung" },
-      { color: "#FFE7BA", label: "Hochwasserschutz" },
-      { color: "#FFA07A", label: "Ökologie/Feuchthabitate" },
-      { color: "#BEBEBE", label: "Kein Pilotprojekt" },
-    ];
 
-    initMap();
+    const map = FVAMap.create({
+      container: "map",
+      // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+      ariaLabel: "Wasserrückhalt im Wald – Landkreise und Maßnahmenstandorte",
+    });
 
-    function initMap() {
-      const map = FVAMap.create({
-        container: "map",
-        // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
-        ariaLabel: "Wasserrückhalt im Wald – Landkreise und Maßnahmenstandorte",
+    // Braucht map (hängt die Lightbox in den Karten-Container statt in
+    // document.body, damit sie auch im nativen Fullscreen sichtbar bleibt
+    // - siehe Kommentar über initImageLightbox in basemap.js).
+    FVAMap.initImageLightbox(map);
+
+    const tooltip = FVAMap.createHoverTooltip(map);
+
+    map.on("load", () => {
+      map.addSource("landkreise", { type: "geojson", data: LANDKREISE_URL, generateId: true });
+      map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
+
+      const fillColorMatch = FVAMap.matchExpr("hauptzielsetzung", HAUPTZIELSETZUNG_STYLE, "fillColor");
+      const fillOpacityMatch = FVAMap.matchExpr("hauptzielsetzung", HAUPTZIELSETZUNG_STYLE, "fillOpacity");
+
+      map.addLayer({
+        id: "landkreise-fill",
+        type: "fill",
+        source: "landkreise",
+        paint: {
+          "fill-color": fillColorMatch,
+          "fill-opacity": FVAMap.hoverExpr(0.8, fillOpacityMatch),
+        },
       });
 
-      // Braucht map (hängt die Lightbox in den Karten-Container statt in
-      // document.body, damit sie auch im nativen Fullscreen sichtbar bleibt
-      // - siehe Kommentar über initImageLightbox in basemap.js).
-      FVAMap.initImageLightbox(map);
-
-      const tooltip = FVAMap.createHoverTooltip(map);
-
-      map.on("load", () => {
-        map.addSource("landkreise", { type: "geojson", data: LANDKREISE_URL, generateId: true });
-        map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
-
-        map.addLayer({
-          id: "landkreise-fill",
-          type: "fill",
-          source: "landkreise",
-          paint: {
-            "fill-color": ["get", "fillColor"],
-            "fill-opacity": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              0.8, ["get", "fillOpacity"],
-            ],
-          },
-        });
-
-        map.addLayer({
-          id: "landkreise-line",
-          type: "line",
-          source: "landkreise",
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              ["+", ["get", "weight"], 2], ["get", "weight"],
-            ],
-            "line-opacity": ["get", "opacity"],
-          },
-        });
-
-        map.addLayer({
-          id: "standorte-punkte",
-          type: "circle",
-          source: "standorte",
-          paint: {
-            "circle-radius": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              ["+", ["get", "radius"], 4], ["get", "radius"],
-            ],
-            "circle-color": ["get", "fillColor"],
-            "circle-opacity": ["get", "fillOpacity"],
-            "circle-stroke-color": ["get", "color"],
-            "circle-stroke-width": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              ["+", ["get", "weight"], 1.5], ["get", "weight"],
-            ],
-            "circle-stroke-opacity": ["get", "opacity"],
-          },
-        });
-
-        // Hover-Hervorhebung (feature-state) + Cursor für beide Layer.
-        FVAMap.enableHoverState(map, "landkreise-fill", "landkreise");
-        FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
-
-        // -- Landkreise: Hover-Tooltip ------------------------------------
-        map.on("mousemove", "landkreise-fill", (e) => {
-          const p = e.features[0].properties;
-          tooltip.show(
-            `<div class="fva-tooltip__title">${p.label}</div>` +
-            `<div>Hauptzielsetzung: <b>${p.hauptzielsetzung}</b></div>` +
-            `<div>Projektgemeinde: <b>${p.projektgemeinde}</b></div>`,
-            e.point,
-            { html: true }
-          );
-        });
-        map.on("mouseleave", "landkreise-fill", () => tooltip.hide());
-
-        // -- Standorte: Hover-Tooltip (Name) -----------------------------
-        map.on("mousemove", "standorte-punkte", (e) => {
-          tooltip.show(
-            `<div class="fva-tooltip__title">${e.features[0].properties.label}</div>`,
-            e.point,
-            { html: true }
-          );
-        });
-        map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
-
-        // -- Klick-Popup nur für Standorte ---------------------------------
-        map.on("click", "standorte-punkte", (e) => {
-          openStandortPopup(map, e.features[0].properties);
-        });
-
-        // -- Legende (Standardformat, immer unten rechts) ----------------
-        FVAMap.addLegend(map, {
-          title: LEGEND_TITLE,
-          items: LEGEND_ITEMS,
-        });
+      map.addLayer({
+        id: "landkreise-line",
+        type: "line",
+        source: "landkreise",
+        paint: {
+          "line-color": "#000000",
+          "line-width": FVAMap.hoverExpr(1 + 2, 1), // +2 Kontur-Stärke bei Hover
+          "line-opacity": 1,
+        },
       });
-    }
 
-    /** Öffnet das Popup für einen Maßnahmenstandort (Hülle + Inhalt). */
+      map.addLayer({
+        id: "standorte-punkte",
+        type: "circle",
+        source: "standorte",
+        paint: {
+          "circle-radius": FVAMap.hoverExpr(5.6 + 4, 5.6), // +4 Radius bei Hover
+          "circle-color": "#FF0000",
+          "circle-opacity": 0.9,
+          "circle-stroke-color": "#FFFFFF",
+          "circle-stroke-width": FVAMap.hoverExpr(1.5 + 1.5, 1.5), // +1.5 Randstärke bei Hover
+          "circle-stroke-opacity": 1,
+        },
+      });
+
+      // Hover-Hervorhebung (feature-state) + Cursor für beide Layer.
+      FVAMap.enableHoverState(map, "landkreise-fill", "landkreise");
+      FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
+
+      // -- Landkreise: Hover-Tooltip ------------------------------------
+      map.on("mousemove", "landkreise-fill", (e) => {
+        const p = e.features[0].properties;
+        tooltip.show(
+          `<div class="fva-tooltip__title">${p.label}</div>` +
+          `<div>Hauptzielsetzung: <b>${p.hauptzielsetzung}</b></div>` +
+          `<div>Projektgemeinde: <b>${p.projektgemeinde}</b></div>`,
+          e.point,
+          { html: true }
+        );
+      });
+      map.on("mouseleave", "landkreise-fill", () => tooltip.hide());
+
+      // -- Standorte: Hover-Tooltip (Name) -----------------------------
+      map.on("mousemove", "standorte-punkte", (e) => {
+        tooltip.show(
+          `<div class="fva-tooltip__title">${e.features[0].properties.label}</div>`,
+          e.point,
+          { html: true }
+        );
+      });
+      map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
+
+      // -- Klick-Popup nur für Standorte ---------------------------------
+      map.on("click", "standorte-punkte", (e) => {
+        openStandortPopup(map, e.features[0].properties);
+      });
+
+      // -- Legende (Standardformat, immer unten rechts) ----------------
+      FVAMap.addLegend(map, {
+        title: LEGEND_TITLE,
+        styleTable: HAUPTZIELSETZUNG_STYLE,
+        colorKey: "fillColor",
+      });
+    });
+
+    /** Öffnet das Popup für einen Maßnahmenstandort (Inhalt). Titel + Export
+     *  + Schließen kommen jetzt fest von FVAMap.openModal, kein eigener
+     *  Header hier mehr nötig. */
     function openStandortPopup(map, props) {
-      const root = document.createElement("div");
-      root.className = "fva-popup fva-popup--large";
-
-      const header = document.createElement("div");
-      header.className = "fva-popup__header";
-      header.textContent = props.popup_name;
-      root.appendChild(header);
-
+      // .fva-popup(--large) + .fva-popup__body auf demselben Element - vorher
+      // war das getrennt (Hülle root außen, body innen), aber root gab es nur
+      // für den jetzt entfallenen eigenen Header-Balken.
       const body = document.createElement("div");
-      body.className = "fva-popup__body";
-      root.appendChild(body);
+      body.className = "fva-popup fva-popup--large fva-popup__body";
 
       let massnahmenListe = props.popup_massnahmen;
       if (typeof massnahmenListe === "string") {
@@ -219,7 +218,7 @@
       // sich wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
       // Repositionieren nach dem Bildladen mehr nötig - das Modal hat keinen
       // Anker, der sich verschieben könnte.
-      FVAMap.openModal(map, root);
+      FVAMap.openModal(map, body, { title: props.popup_name, exportName: props.popup_name });
     }
   </script>
 </body>

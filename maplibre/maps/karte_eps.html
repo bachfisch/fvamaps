@@ -6,12 +6,12 @@
 
 <!-- Gemeinsame FVA-Basemap -->
 <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-<link rel="stylesheet" href="../base/basemap.css?v=20260917" />
+<link rel="stylesheet" href="../base/basemap.css" />
 <script src="../vendor/maplibre-gl.js"></script>
-<script src="../base/basemap.js?v=20260917"></script>
+<script src="../base/basemap.js"></script>
 <!-- PNG-Export der Popup-Grafik/-Tabelle. html-to-image 1.11.13, MIT-Lizenz,
      siehe vendor/README.md. -->
-<script src="../vendor/html-to-image.js?v=20260908"></script>
+<script src="../vendor/html-to-image.js"></script>
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -337,10 +337,8 @@
     to   { transform: rotate(360deg); }
   }
 
-  #gantt-wrap {
-    width: 100%;
-    overflow-x: auto;
-  }
+  /* width:100%/overflow-x:auto kommen jetzt aus der geteilten .fva-scroll-x
+     (siehe base/basemap.css) - #gantt-wrap trägt diese Klasse im Markup. */
   #gantt-wrap svg {
     display: block;
     width: 100%;
@@ -485,7 +483,7 @@
             <div class="panel-location" id="gantt-location"></div>
             <div class="panel-coords" id="modal-coords">–</div>
           </div>
-          <div id="gantt-wrap"></div>
+          <div id="gantt-wrap" class="fva-scroll-x"></div>
           <div class="gantt-legend" id="gantt-legend"></div>
         </div>
 

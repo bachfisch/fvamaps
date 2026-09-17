@@ -12,7 +12,6 @@
       },
       "properties": {
         "label": "Rotenfels Fichte",
-        "popup_name": "Rotenfels Fichte",
         "standort": "Rotenfels",
         "baumart": "Fichte",
         "hoehe_m": 600,
@@ -31,7 +30,6 @@
       },
       "properties": {
         "label": "Heidelberg Fichte",
-        "popup_name": "Heidelberg Fichte",
         "standort": "Heidelberg",
         "baumart": "Fichte",
         "hoehe_m": 511,
@@ -50,7 +48,6 @@
       },
       "properties": {
         "label": "Conventwald Fichte",
-        "popup_name": "Conventwald Fichte",
         "standort": "Conventwald",
         "baumart": "Fichte",
         "hoehe_m": 816,
@@ -69,9 +66,8 @@
       },
       "properties": {
         "label": "Ochsenhausen Fichte geduengt",
-        "popup_name": "Ochsenhausen Fichte geduengt",
         "standort": "Ochsenhausen",
-        "baumart": "Fichte_geduengt",
+        "baumart": "Fichte",
         "hoehe_m": 682,
         "hangneigung_grad": 1,
         "bodentyp": "Pseudogley-Parabraunerde"
@@ -88,7 +84,6 @@
       },
       "properties": {
         "label": "Esslingen Fichte",
-        "popup_name": "Esslingen Fichte",
         "standort": "Esslingen",
         "baumart": "Fichte",
         "hoehe_m": 345,
@@ -107,7 +102,6 @@
       },
       "properties": {
         "label": "Altensteig Fichte",
-        "popup_name": "Altensteig Fichte",
         "standort": "Altensteig",
         "baumart": "Fichte",
         "hoehe_m": 512,
@@ -126,7 +120,6 @@
       },
       "properties": {
         "label": "Heidelberg Buche",
-        "popup_name": "Heidelberg Buche",
         "standort": "Heidelberg",
         "baumart": "Buche",
         "hoehe_m": 390,
@@ -145,9 +138,8 @@
       },
       "properties": {
         "label": "Conventwald Bannwald Buche",
-        "popup_name": "Conventwald Bannwald Buche",
         "standort": "Conventwald",
-        "baumart": "Bannwald_Buche",
+        "baumart": "Buche",
         "hoehe_m": 811,
         "hangneigung_grad": 19,
         "bodentyp": "Braunerde"
@@ -164,7 +156,6 @@
       },
       "properties": {
         "label": "Ochsenhausen Buche",
-        "popup_name": "Ochsenhausen Buche",
         "standort": "Ochsenhausen",
         "baumart": "Buche",
         "hoehe_m": 696,
@@ -183,7 +174,6 @@
       },
       "properties": {
         "label": "Altensteig Buche",
-        "popup_name": "Altensteig Buche",
         "standort": "Altensteig",
         "baumart": "Buche",
         "hoehe_m": 492,
@@ -202,7 +192,6 @@
       },
       "properties": {
         "label": "Esslingen Buche",
-        "popup_name": "Esslingen Buche",
         "standort": "Esslingen",
         "baumart": "Buche",
         "hoehe_m": 327,
@@ -220,10 +209,9 @@
         ]
       },
       "properties": {
-        "label": "Ochsenhausen Fichte Null",
-        "popup_name": "Ochsenhausen Fichte Null",
+        "label": "Ochsenhausen Fichte",
         "standort": "Ochsenhausen",
-        "baumart": "Fichte_Null",
+        "baumart": "Fichte",
         "hoehe_m": 650,
         "hangneigung_grad": 0,
         "bodentyp": "Pseudogley-Parabraunerde"

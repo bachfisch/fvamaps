@@ -6,12 +6,12 @@
   <title>Level II Bodenfeuchtemonitoring – Karte</title>
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css?v=20260917" />
+  <link rel="stylesheet" href="../base/basemap.css" />
 
   <!--
     Nur für diese Karte: Tabs + Grafik im Standort-Popup.
     Bewusst hier und nicht in basemap.css, weil kein anderer Kartentyp
-    das (noch) braucht - siehe Kommentar in karte_basemap.html.
+    das (noch) braucht.
   -->
   <style>
     /* .fva-popup--large deckelt normale Popups in basemap.css auf max-width:520px -
@@ -24,13 +24,15 @@
 
     /* Breite wird pro Popup dynamisch in JS gesetzt (~90% der Kartenbreite);
        das hier ist nur der Fallback, falls JS aus irgendeinem Grund nicht greift.
-       max-height/overflow-y aus basemap.css (.fva-popup__body, dort 360px für
-       normale, klein bleibende maplibregl.Popups gedacht) hier aufgehoben -
-       das umschließende .fva-modal übernimmt diesen Job jetzt selbst
-       (max-height:92vh + Scroll). Ohne diese Aufhebung würde die Grafik
-       innerhalb des Modals trotzdem bei 360px abgeschnitten/gescrollt,
+       Kein Leerzeichen zwischen den beiden Klassen - beide sitzen mittlerweile
+       auf demselben Element (siehe openStandortPopup, kein eigener Header-
+       Wrapper mehr). max-height/overflow-y aus basemap.css (.fva-popup__body,
+       dort 360px für normale, klein bleibende maplibregl.Popups gedacht) hier
+       aufgehoben - das umschließende .fva-modal übernimmt diesen Job jetzt
+       selbst (max-height:92vh + Scroll). Ohne diese Aufhebung würde die
+       Grafik innerhalb des Modals trotzdem bei 360px abgeschnitten/gescrollt,
        unabhängig davon, wie hoch chartHeight berechnet wird. */
-    .fva-popup--level2 .fva-popup__body {
+    .fva-popup--level2.fva-popup__body {
       width: 480px;
       max-width: 90vw;
       max-height: none;
@@ -40,14 +42,10 @@
     .wh-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: #555; margin-bottom: 10px; }
     .wh-meta b { color: #222; }
 
-    /* Tiefen-Tabs + Export-Button in einer Zeile - der Rand/Abstand, den
-       vorher .wh-tabs alleine trug, sitzt jetzt hier, damit er über die
-       volle Breite (inkl. Button) durchläuft statt nur unter den Tabs. */
-    .wh-tabs-row {
-      display: flex; align-items: flex-end; gap: 8px;
+    .wh-tabs {
+      display: flex; gap: 4px;
       border-bottom: 1px solid #ddd; margin-bottom: 8px;
     }
-    .wh-tabs { display: flex; gap: 4px; flex: 1; }
     .wh-tab {
       appearance: none; border: none; background: none; cursor: pointer;
       padding: 6px 12px; font-size: 13px; color: #666; border-bottom: 2px solid transparent;
@@ -56,19 +54,15 @@
     .wh-tab:hover { color: #2F6B4F; }
     .wh-tab--active { color: #2F6B4F; border-bottom-color: #2F6B4F; font-weight: 600; }
 
-    /* PNG-Export - gleiche Optik wie #print-btn in karte_eps.html. */
-    .wh-export-btn {
-      flex-shrink: 0; margin-bottom: 6px;
-      background: none; border: 1px solid #ccc; border-radius: 5px;
-      padding: 3px 9px; font-size: 12px; font-family: inherit;
-      cursor: pointer; color: #555;
-    }
-    .wh-export-btn:hover { background: #f5f5f5; }
-    .wh-export-btn:disabled { cursor: default; opacity: 0.6; }
-
     /* Der Plot selbst (Achsen, Hover, Crosshair) kommt jetzt komplett von
-       Plotly.js - hier nur noch der Rahmen für den Container. */
-    .wh-chart { position: relative; }
+       Plotly.js. min-width statt einer von JS berechneten festen Breite -
+       Plotly rendert per layout.autosize:true responsive in die tatsächlich
+       verfügbare Breite hinein (siehe WHChart.renderInto), min-width ist nur
+       die Untergrenze dafür. Der Scrollbalken auf schmalen Bildschirmen
+       sitzt am umschließenden .fva-scroll-x-Wrapper (siehe base/basemap.css),
+       NICHT hier - dieses Element selbst kann ja nie "in sich selbst"
+       überlaufen. */
+    .wh-chart { position: relative; min-width: 500px; }
 
     .wh-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: #555; margin-top: 6px; }
     .wh-legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -82,11 +76,11 @@
   <div id="map"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js?v=20260917"></script>
+  <script src="../base/basemap.js"></script>
   <!-- Nur für die Wasserhaushalts-Grafik im Klick-Popup dieser Karte (siehe WHChart unten). -->
-  <script src="../vendor/plotly-basic.min.js?v=20260917"></script>
-  <!-- PNG-Export der Grafik (siehe exportChartPng unten), wie in karte_eps.html -->
-  <script src="../vendor/html-to-image.js?v=20260908"></script>
+  <script src="../vendor/plotly-basic.min.js"></script>
+  <!-- PNG-Export im Popup-Header (siehe FVAMap.openModal/exportModalPng in basemap.js) -->
+  <script src="../vendor/html-to-image.js"></script>
   <script>
     /**
      * Level II – Bodenfeuchtemonitoring
@@ -96,7 +90,14 @@
      * einem Tab pro Bodentiefe - ersetzt die früheren Einzel-Exporte.
      * Geodaten:
      *   data/level2_standorte.geojson - NUR Standort-Metadaten (label,
-     *   popup_name, standort, baumart, hoehe_m, hangneigung_grad, bodentyp).
+     *   standort, baumart, hoehe_m, hangneigung_grad, bodentyp). "baumart"
+     *   ist die reine Art ("Fichte"/"Buche", bestimmt Farbe/Legende). Der
+     *   exakte CSV-Spaltenwert für den Wasserhaushalt-Chart ("datenreihe")
+     *   steht NICHT in der GeoJSON, sondern wird aus "label" abgeleitet
+     *   (Standort-Präfix + Leerzeichen weg, siehe openStandortPopup) - bei
+     *   den meisten Standorten identisch zu "baumart", aber Ochsenhausen hat
+     *   z.B. neben "Fichte" noch "Fichte_geduengt" als eigene Datenreihe,
+     *   im Label als "Ochsenhausen Fichte geduengt" erkennbar.
      *   Punkt-Styling (Farbe/Radius/...) kommt bewusst NICHT von dort, siehe
      *   SPECIES_STYLE unten - das ist immer dasselbe für alle Standorte
      *   einer Baumart, muss also nicht pro Feature in der GeoJSON stehen.
@@ -106,142 +107,113 @@
      * Ob es für einen Standort eine Grafik gibt, wird NICHT über ein Flag in
      * der GeoJSON entschieden, sondern einfach ausprobiert: CSV lädt ->
      * Grafik, CSV fehlt (404) -> Hinweistext (siehe openStandortPopup).
-     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende steht in
-     * LEGEND_ITEMS.
+     * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende leitet
+     * FVAMap.addLegend (styleTable-Option) direkt aus SPECIES_STYLE ab.
      * -----------------------------------------------------------------
      */
 
     const STANDORTE_URL = "./data/level2_standorte.geojson";
     const DATA_DIR = "./data/";
 
-    // Einzige Quelle für die Punkt-/Legenden-Farben je Baumart - baumart in
-    // der GeoJSON ist z.B. auch "Fichte_geduengt" oder "Bannwald_Buche",
-    // daher unten ein Substring-Check ("enthält Buche?") statt exaktem
-    // Vergleich, siehe circle-color/-stroke-color.
+    // Einzige Quelle für die Punkt-/Legenden-Farben je Baumart - "baumart"
+    // in der GeoJSON ist immer nur die reine Art ("Fichte"/"Buche"), die
+    // Varianten für den Wasserhaushalt-Chart (z.B. "Fichte_geduengt")
+    // werden erst zur Laufzeit aus "label" abgeleitet, siehe
+    // openStandortPopup - hier fürs Styling irrelevant.
     const SPECIES_STYLE = {
       Buche:  { fill: "#C8E6A0", stroke: "#5B8C3A" },
       Fichte: { fill: "#9FD8C8", stroke: "#2F7A66" },
     };
-    const POINT_RADIUS = 7;
-    const POINT_FILL_OPACITY = 0.85;
-    const POINT_STROKE_WEIGHT = 2;
-    const POINT_STROKE_OPACITY = 1;
+    // Radius/Deckkraft/Randstärke sind für jeden Standort gleich (keine
+    // Kategorie-Abhängigkeit wie bei SPECIES_STYLE), stehen deshalb direkt
+    // im paint-Objekt unten, keine eigene Tabelle dafür.
 
     const LEGEND_TITLE = "Baumart";
-    const LEGEND_ITEMS = Object.entries(SPECIES_STYLE).map(([label, s]) => ({ color: s.fill, label }));
 
-    initMap();
+    const map = FVAMap.create({
+      container: "map",
+      // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+      ariaLabel: "Level II Bodenfeuchtemonitoring – Standorte und Wasserhaushalt",
+    });
 
-    function initMap() {
-      const map = FVAMap.create({
-        container: "map",
-        // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
-        ariaLabel: "Level II Bodenfeuchtemonitoring – Standorte und Wasserhaushalt",
+    const tooltip = FVAMap.createHoverTooltip(map);
+
+    map.on("load", () => {
+      map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
+
+      // Farben kommen aus SPECIES_STYLE, per exaktem FVAMap.matchExpr auf
+      // "baumart" (reine Art, "Fichte"/"Buche"). Radius/Opazität/
+      // Strichstärke sind für jeden Standort ohnehin gleich (feste
+      // Konstanten oben).
+      map.addLayer({
+        id: "standorte-punkte",
+        type: "circle",
+        source: "standorte",
+        paint: {
+          "circle-radius": FVAMap.hoverExpr(7 + 4, 7), // +4 Radius bei Hover
+          "circle-color": FVAMap.matchExpr("baumart", SPECIES_STYLE, "fill"),
+          "circle-opacity": 0.85,
+          "circle-stroke-color": FVAMap.matchExpr("baumart", SPECIES_STYLE, "stroke"),
+          "circle-stroke-width": FVAMap.hoverExpr(2 + 1.5, 2), // +1.5 Randstärke bei Hover
+          "circle-stroke-opacity": 1,
+        },
       });
 
-      const tooltip = FVAMap.createHoverTooltip(map);
+      FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
 
-      map.on("load", () => {
-        map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
-
-        // Diagnose: prüft einmalig, ob die geladenen Features das erwartete
-        // Schema haben (label/popup_name/standort/baumart).
-        // Meldet sich laut in der Konsole, statt später still "undefined" zu zeigen.
-        map.once("sourcedata", function checkSchema(e) {
-          if (e.sourceId !== "standorte" || !map.isSourceLoaded("standorte")) return;
-          map.off("sourcedata", checkSchema);
-          const feats = map.querySourceFeatures("standorte");
-          if (!feats.length) {
-            console.error(
-              `[karte_level2] "${STANDORTE_URL}" lieferte 0 Features. ` +
-              `Prüfen: liegt die Datei wirklich unter diesem Pfad (Netzwerk-Tab, Status 200)?`
-            );
-            return;
-          }
-          const p = feats[0].properties;
-          const required = ["label", "popup_name", "standort", "baumart"];
-          const missing = required.filter((k) => !(k in p));
-          if (missing.length) {
-            console.error(
-              `[karte_level2] "${STANDORTE_URL}" hat nicht das erwartete Schema - ` +
-              `es fehlen: ${missing.join(", ")}. Vermutlich liegt hier noch eine ältere ` +
-              `geojson-Version (z.B. das ursprüngliche "standorte.geojson") statt der für ` +
-              `diese Karte erzeugten "level2_standorte.geojson". Gefundene properties:`, p
-            );
-          }
-        });
-
-        // Farben kommen aus SPECIES_STYLE, nicht aus der GeoJSON - "in" prüft
-        // hier auf Teilstring (baumart kann z.B. "Bannwald_Buche" oder
-        // "Fichte_geduengt" sein), Radius/Opazität/Strichstärke sind für
-        // jeden Standort ohnehin gleich (feste Konstanten oben).
-        const isBuche = ["in", "Buche", ["get", "baumart"]];
-        map.addLayer({
-          id: "standorte-punkte",
-          type: "circle",
-          source: "standorte",
-          paint: {
-            "circle-radius": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              POINT_RADIUS + 4, POINT_RADIUS,
-            ],
-            "circle-color": ["case", isBuche, SPECIES_STYLE.Buche.fill, SPECIES_STYLE.Fichte.fill],
-            "circle-opacity": POINT_FILL_OPACITY,
-            "circle-stroke-color": ["case", isBuche, SPECIES_STYLE.Buche.stroke, SPECIES_STYLE.Fichte.stroke],
-            "circle-stroke-width": [
-              "case", ["boolean", ["feature-state", "hover"], false],
-              POINT_STROKE_WEIGHT + 1.5, POINT_STROKE_WEIGHT,
-            ],
-            "circle-stroke-opacity": POINT_STROKE_OPACITY,
-          },
-        });
-
-        FVAMap.enableHoverState(map, "standorte-punkte", "standorte");
-
-        // -- Standorte: Hover-Tooltip (Name) -----------------------------
-        map.on("mousemove", "standorte-punkte", (e) => {
-          const p = e.features[0].properties;
-          const name = p.label || p.popup_name || p.name || [p.standort, p.baumart].filter(Boolean).join(" ") || "Standort";
-          tooltip.show(`<div class="fva-tooltip__title">${name}</div>`, e.point, { html: true });
-        });
-        map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
-
-        // -- Klick-Popup: Metadaten + Wasserhaushalts-Grafik -------------
-        map.on("click", "standorte-punkte", (e) => {
-          openStandortPopup(map, e.features[0].properties);
-        });
-
-        // -- Legende (Standardformat, immer unten rechts) ----------------
-        FVAMap.addLegend(map, {
-          title: LEGEND_TITLE,
-          items: LEGEND_ITEMS,
-        });
+      // -- Standorte: Hover-Tooltip (Name) -----------------------------
+      map.on("mousemove", "standorte-punkte", (e) => {
+        const p = e.features[0].properties;
+        const name = p.label || p.name || [p.standort, p.baumart].filter(Boolean).join(" ") || "Standort";
+        tooltip.show(`<div class="fva-tooltip__title">${name}</div>`, e.point, { html: true });
       });
-    }
+      map.on("mouseleave", "standorte-punkte", () => tooltip.hide());
 
-    /** Öffnet das Popup für einen Level-II-Standort (Hülle + Metadaten + Grafik). */
+      // -- Klick-Popup: Metadaten + Wasserhaushalts-Grafik -------------
+      map.on("click", "standorte-punkte", (e) => {
+        openStandortPopup(map, e.features[0].properties);
+      });
+
+      // -- Legende (Standardformat, immer unten rechts) ----------------
+      FVAMap.addLegend(map, {
+        title: LEGEND_TITLE,
+        styleTable: SPECIES_STYLE,
+        colorKey: "fill",
+      });
+    });
+
+    /** Öffnet das Popup für einen Level-II-Standort (Metadaten + Grafik).
+     *  Titel + Export + Schließen kommen jetzt fest von FVAMap.openModal,
+     *  kein eigener Header hier mehr nötig. */
     function openStandortPopup(map, props) {
-      const root = document.createElement("div");
-      root.className = "fva-popup fva-popup--large fva-popup--level2";
-
       const displayName =
-        props.popup_name || props.label || props.name ||
+        props.label || props.name ||
         [props.standort, props.baumart].filter(Boolean).join(" ") || "Standort";
 
-      const header = document.createElement("div");
-      header.className = "fva-popup__header";
-      header.textContent = displayName;
-      root.appendChild(header);
+      // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
+      // Namen ableiten ("Altensteig Buche" -> "Altensteig").
+      const standort = props.standort || displayName.split(" ")[0];
 
+      // datenreihe (exakter CSV-Spaltenwert, z.B. "Fichte_geduengt") kommt
+      // nicht mehr aus der GeoJSON, sondern aus dem Label abgeleitet -
+      // "Ochsenhausen Fichte geduengt" minus Standort "Ochsenhausen" minus
+      // Leerzeichen->Unterstrich = "Fichte_geduengt". label ist eindeutig
+      // genug dafür, siehe level2_standorte.geojson (kein separates Feld
+      // mehr, das mit dem Label auseinanderlaufen könnte).
+      const rest = displayName.replace(standort, "").trim().replace(/\s+/g, "_");
+      const datenreihe = rest || props.baumart;
+
+      // .fva-popup(--large/--level2) + .fva-popup__body auf demselben
+      // Element - vorher war das getrennt (Hülle root außen, body innen),
+      // aber root gab es nur für den jetzt entfallenen eigenen Header-Balken.
       const body = document.createElement("div");
-      body.className = "fva-popup__body";
+      body.className = "fva-popup fva-popup--large fva-popup--level2 fva-popup__body";
       // 90% der Kartenbreite (5% Rand links/rechts) statt fixer Breite - die
       // Grafik darf fast die ganze Kartenbreite nutzen. plotWidth wird unten
       // zusätzlich explizit als Plotly-layout.width durchgereicht, statt sich
       // auf Plotlys eigene Container-Breitenermittlung zu verlassen.
       const plotWidth = Math.round(map.getContainer().clientWidth * 0.9);
       body.style.width = plotWidth + "px";
-      root.appendChild(body);
       // Obergrenze für die Grafik-Höhe (90% der Kartenhöhe) - buildTabs()
       // zieht davon noch Header/Meta/Tabs/Legende ab, damit die Grafik den
       // verbleibenden Platz ausnutzt, ohne das Modal unnötig aufzublähen.
@@ -260,17 +232,41 @@
       chartWrap.textContent = "Lade Wasserhaushalt …";
       body.appendChild(chartWrap);
 
+      // Referenz auf chartDiv für die Export-Hooks unten - existiert erst,
+      // sobald buildTabs() (nach dem CSV-Laden) es tatsächlich erzeugt hat,
+      // deshalb ein veränderliches Objekt statt einer festen Variable.
+      const chartRef = { el: null };
+
+      // Der Chart hat per CSS eine Mindestbreite (siehe .wh-chart), damit er
+      // auf schmalen Bildschirmen nicht gestaucht wird - stattdessen wird
+      // .fva-scroll-x seitlich scrollbar. html-to-image bemisst die Export-
+      // Canvas aber am clientWidth des Modals; der weggescrollte Teil würde
+      // sonst abgeschnitten. Für den Export deshalb kurz die Mindestbreite
+      // aufheben (Plotly schrumpft dann responsiv auf die tatsächlich
+      // sichtbare Breite) und danach wiederherstellen.
+      async function beforeExport() {
+        if (!chartRef.el) return;
+        chartRef.el.style.minWidth = "0";
+        await Plotly.Plots.resize(chartRef.el);
+      }
+      async function afterExport() {
+        if (!chartRef.el) return;
+        chartRef.el.style.minWidth = "";
+        await Plotly.Plots.resize(chartRef.el);
+      }
+
       // Zentriertes Modal statt maplibregl.Popup + setLngLat() - bei 90%
       // Kartenbreite würde ein am Standort verankertes Popup sonst je nach
       // Klickposition/Kartenausschnitt irgendwo am Rand aufklappen statt sich
       // wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
       // Repositionieren nach dem Laden/Tab-Wechsel mehr nötig - das Modal hat
       // keinen Anker, der sich verschieben könnte.
-      FVAMap.openModal(map, root);
-
-      // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
-      // Namen ableiten ("Altensteig Buche" -> "Altensteig").
-      const standort = props.standort || displayName.split(" ")[0];
+      FVAMap.openModal(map, body, {
+        title: displayName,
+        exportName: `Wasserhaushalt_${standort}_${datenreihe}`,
+        beforeExport,
+        afterExport,
+      });
 
       // Kein Flag mehr, das vorher pflegen musste, wer welche CSVs schon
       // hochgeladen hat ("wasserhaushalt_verfuegbar" in der GeoJSON) - wir
@@ -278,9 +274,9 @@
       // im catch() unten.
       WHChart.loadStandortData(standort, DATA_DIR)
         .then((data) => {
-          const tiefen = WHChart.getTiefen(data, props.baumart);
-          if (!tiefen.length) throw new Error(`keine Tiefen für Baumart "${props.baumart}" in den CSV-Daten von ${standort}`);
-          buildTabs(chartWrap, data, { ...props, standort }, tiefen, plotWidth, plotHeight);
+          const tiefen = WHChart.getTiefen(data, datenreihe);
+          if (!tiefen.length) throw new Error(`keine Tiefen für Baumart "${datenreihe}" in den CSV-Daten von ${standort}`);
+          buildTabs(chartWrap, data, { ...props, standort, datenreihe }, tiefen, plotWidth, plotHeight, chartRef);
         })
         .catch((err) => {
           console.error("[karte_level2] Wasserhaushalt konnte nicht geladen werden:", err);
@@ -292,36 +288,36 @@
     }
 
     /** Baut die Tiefen-Tabs + Chart-Container und zeichnet die erste Tiefe. */
-    function buildTabs(container, data, props, tiefen, plotWidth, plotHeight) {
+    function buildTabs(container, data, props, tiefen, plotWidth, plotHeight, chartRef) {
       container.className = "";
       container.innerHTML = "";
 
-      // Tiefen-Tabs + Export-Button in einer Zeile (wie Tabs + "Export" im
-      // EPS-Modal-Header).
-      const tabsRow = document.createElement("div");
-      tabsRow.className = "wh-tabs-row";
-      container.appendChild(tabsRow);
-
+      // Export-Button sitzt jetzt im Modal-Header (FVAMap.openModal) und
+      // fotografiert bei Klick das ganze Popup - kein eigener Button/Zeile
+      // hier mehr nötig, die Tiefen-Tabs stehen einfach für sich.
       const tabs = document.createElement("div");
       tabs.className = "wh-tabs";
-      tabsRow.appendChild(tabs);
+      container.appendChild(tabs);
 
-      const exportBtn = document.createElement("button");
-      exportBtn.type = "button";
-      exportBtn.className = "wh-export-btn";
-      exportBtn.textContent = "Export";
-      exportBtn.addEventListener("click", exportChartPng);
-      tabsRow.appendChild(exportBtn);
-
-      // Grafik + Legende zusammen in einem Panel - das ist die Einheit, die
-      // exportChartPng() als PNG festh\u00e4lt (nicht die Tabs/den Button).
       const panel = document.createElement("div");
       panel.className = "wh-chart-panel";
       container.appendChild(panel);
 
+      // Eigener Scroll-Container NUR um die Grafik (nicht die Legende) - wie
+      // #gantt-wrap in karte_eps.html, dieselbe geteilte .fva-scroll-x
+      // (siehe base/basemap.css): Wrapper bleibt width:100% (folgt dem
+      // Popup), chartDiv darin darf per min-width breiter sein - das erzeugt
+      // hier den Scrollbalken, NICHT overflow-x auf chartDiv selbst (das
+      // rendert Plotly ja responsiv auf seine tatsächliche Zielbreite,
+      // siehe WHChart.renderInto, kann also nie "in sich selbst" überlaufen).
+      const chartScroll = document.createElement("div");
+      chartScroll.className = "fva-scroll-x";
+      panel.appendChild(chartScroll);
+
       const chartDiv = document.createElement("div");
       chartDiv.className = "wh-chart";
-      panel.appendChild(chartDiv);
+      chartScroll.appendChild(chartDiv);
+      chartRef.el = chartDiv; // für die Export-Hooks in openStandortPopup
 
       const legend = document.createElement("div");
       legend.className = "wh-legend";
@@ -333,55 +329,25 @@
         ["#F4C2C2", "Sehr trocken (min-Q10)"],
       ].map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("") +
         [
-          ["#737373", "Median (2010\u20132025)"],
+          ["#737373", "Median (2010–2025)"],
           ["#D7263D", "Aktuelle nFK"],
         ].map(([c, l]) => `<span><i class="wh-legend--line" style="background:${c}"></i>${l}</span>`).join("");
       panel.appendChild(legend);
 
-      // plotHeight (90% der Kartenh\u00f6he) gilt f\u00fcr das GANZE Popup, nicht nur
+      // plotHeight (90% der Kartenhöhe) gilt für das GANZE Popup, nicht nur
       // die Grafik - also erst Header/Meta-Zeile/Tabs/Legende abziehen. Fest
-      // gesch\u00e4tzt statt live gemessen (Header ~40px + Body-Padding ~24px +
+      // geschätzt statt live gemessen (Header ~40px + Body-Padding ~24px +
       // Meta-Zeile ~30px + Tabs ~37px + Legende ~30px), damit das Ergebnis
-      // nicht von DOM-Timing beim Messen abh\u00e4ngt. 240px Mindesth\u00f6he als
+      // nicht von DOM-Timing beim Messen abhängt. 240px Mindesthöhe als
       // Notbremse.
       const CHROME_ESTIMATE_PX = 170;
       const chartHeight = Math.max(240, plotHeight - CHROME_ESTIMATE_PX);
 
-      let currentTiefe = null;
-
       function selectTiefe(tiefe) {
-        currentTiefe = tiefe;
         [...tabs.children].forEach((btn) =>
           btn.classList.toggle("wh-tab--active", Number(btn.dataset.tiefe) === tiefe)
         );
-        WHChart.renderInto(chartDiv, data, props.baumart, tiefe, { standort: props.standort, plotWidth, chartHeight });
-      }
-
-      // PNG-Export der aktuell angezeigten Tiefe (Grafik + Legende), analog
-      // zu exportPng() in karte_eps.html.
-      async function exportChartPng() {
-        if (typeof htmlToImage === "undefined") {
-          console.error("[karte_level2] html-to-image nicht geladen");
-          return;
-        }
-        exportBtn.disabled = true;
-        const originalText = exportBtn.textContent;
-        exportBtn.textContent = "\u2026";
-        try {
-          const dataUrl = await htmlToImage.toPng(panel, {
-            pixelRatio: 2,
-            backgroundColor: "#ffffff",
-          });
-          const a = document.createElement("a");
-          a.download = `Wasserhaushalt_${props.standort}_${props.baumart}_${currentTiefe}cm.png`;
-          a.href = dataUrl;
-          a.click();
-        } catch (err) {
-          console.error("[karte_level2] PNG-Export fehlgeschlagen:", err);
-        } finally {
-          exportBtn.disabled = false;
-          exportBtn.textContent = originalText;
-        }
+        WHChart.renderInto(chartDiv, data, props.datenreihe, tiefe, { standort: props.standort, plotWidth, chartHeight });
       }
 
       tiefen.forEach((tiefe) => {
@@ -547,6 +513,14 @@
           return Promise.resolve();
         }
 
+        // Nur für die Pixel->Papier-Umrechnung der Zonen-Kästchen/Heute-Box
+        // unten - NICHT mehr als layout.width an Plotly durchgereicht (siehe
+        // layout weiter unten: autosize:true statt fester Breite). Auf dem
+        // Smartphone ist opts.plotWidth (90% der Kartenbreite) oft nur
+        // ~300px; die 500px-Untergrenze hier deckt sich mit der min-width in
+        // der .wh-chart-CSS, matcht also (in aller Regel) die tatsächlich
+        // von Plotly gerenderte Breite.
+        const chartWidthEstimate = Math.max(500, opts.plotWidth);
         const days   = qRows.map((r) => r.tag);
         const maxVal = Math.max(...qRows.map((r) => r.max));
         const maxY   = Math.ceil((maxVal * 1.08) / 20) * 20;
@@ -613,7 +587,7 @@
         // exakt darüber zentriert. "paper" x=0..1 deckt hier genau die
         // Plot-Fläche ab (Marge liegt außerhalb), daher die Umrechnung von
         // Pixel-Offsets über plotAreaWidthPx/-HeightPx.
-        const plotAreaWidthPx  = opts.plotWidth - 50 - 90; // layout.width - margin.l - margin.r
+        const plotAreaWidthPx  = chartWidthEstimate - 50 - 90; // (geschätzte) layout-Breite - margin.l - margin.r
         const plotAreaHeightPx = opts.chartHeight - 10 - 40; // layout.height - margin.t - margin.b
         const pxToDataY  = maxY / plotAreaHeightPx;
         const pxToPaperX = 1 / plotAreaWidthPx;
@@ -676,11 +650,15 @@
 
         const layout = {
           margin: { l: 50, r: 90, t: 10, b: 40 },
-          // Explizit statt Plotlys eigener Größenermittlung überlassen (die
-          // sich auf die Container-Größe zur Renderzeit verlässt) - beide
-          // kommen aus buildTabs()/openStandortPopup() (90% der Karten-
-          // breite/-höhe, Höhe abzüglich Header/Tabs/Legende).
-          width: opts.plotWidth,
+          // autosize:true + kein layout.width: Plotly rendert responsiv in
+          // die tatsächliche Breite von .wh-chart hinein (CSS min-width:500px
+          // dort ist die Untergrenze) und reagiert von selbst auf spätere
+          // Größenänderungen (config.responsive:true unten) - kein manuelles
+          // Ausrechnen/Erzwingen einer festen Pixelbreite mehr nötig. Höhe
+          // bleibt bewusst fest (kommt aus buildTabs()/openStandortPopup(),
+          // 90% der Kartenhöhe abzüglich Header/Tabs/Legende) - autosize
+          // regelt nur die Breite, weil layout.height weiterhin gesetzt ist.
+          autosize: true,
           height: opts.chartHeight,
           xaxis: {
             range: [days[0], days[days.length - 1]],

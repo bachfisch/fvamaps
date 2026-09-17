@@ -95,7 +95,6 @@
       grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     }
     #tiles-row .vergleich-box {
-      flex: initial;
       max-width: none;
     }
     .vergleich-box h2 {
@@ -114,6 +113,8 @@
   </style>
 </head>
 <body>
+  <h1>FVA Karten – Testübersicht</h1>
+
   <div class="tabs">
     <button type="button" class="tab-btn active" data-tab="tab-fachkarten">Fachkarten</button>
     <button type="button" class="tab-btn" data-tab="tab-vergleich">Maplibre - Leaflet</button>
@@ -127,15 +128,6 @@
   </p>
 
   <div id="tab-fachkarten" class="tab-panel active">
-    <h1>FVA Karten – Testübersicht</h1>
-    <p class="hinweis">
-      Bindet alle Karten aus <code>maplibre/maps/</code> per <code>&lt;iframe&gt;</code>
-      ein – analog zur Einbindung auf der FVA-Website (fixe Maße 820&nbsp;×&nbsp;600,
-      <code>loading="lazy"</code>). Neue Karte hinzufügen: Datei in
-      <code>maplibre/maps/</code> legen und einen Eintrag im <code>MAPS</code>-Array
-      unten in dieser Datei ergänzen.
-    </p>
-
     <div id="karten"></div>
   </div>
 
@@ -205,9 +197,8 @@
     /** Baut die beiden Vergleichskarten - bewusst die Standard-Bibliotheken
      *  ohne FVAMap-Wrapper/Design-Tokens, siehe Hinweistext im Tab. */
     function initVergleich() {
-      // Kartenausschnitt: ganz Baden-Württemberg, wie FVAMap.BW_CENTER/-ZOOM
-      // in base/basemap.js (dort aber nicht wiederverwendet - dieser Tab
-      // soll unabhängig von der FVA-Basemap sein).
+      // Kartenausschnitt: ganz Baden-Württemberg, grob zentriert (dieser Tab
+      // soll unabhängig von der FVA-Basemap sein, siehe Hinweistext).
       const BW_CENTER_LNGLAT = [9.15, 48.65];
       const BW_ZOOM = 7;
 
@@ -270,11 +261,11 @@
      *  Ausschnitt (BW_BOUNDS), damit die Kachel-Stile direkt vergleichbar
      *  sind statt nur "ähnlich zentriert". */
     function initTiles() {
-      // Identisch zu FVAMap.BW_BOUNDS in base/basemap.js - hier bewusst
+      // Identisch zu BW_BOUNDS in base/basemap.js - hier bewusst
       // eigenständig hinterlegt statt importiert, siehe Hinweistext im Tab.
       const BW_BOUNDS = [
-        [7.452092513195585, 47.48722644667095],
-        [10.55530403242152, 49.83647412316834],
+        [7.45209, 47.48723],
+        [10.55530, 49.83647],
       ];
 
       const row = document.getElementById("tiles-row");
@@ -325,7 +316,6 @@
       if (k.height) iframe.style.height = k.height + "px";
       iframe.loading = "lazy";
       iframe.title = k.file;
-      iframe.setAttribute("frameborder", "3");
       wrap.appendChild(iframe);
 
       container.appendChild(wrap);

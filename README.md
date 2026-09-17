@@ -36,9 +36,9 @@ python3 -m http.server
   Navigation/Fullscreen, deaktivierte Rotation, `role`/`aria-label` am Container
   und einen `error`-Handler.
 - **Kartenausschnitt kommt aus der Basemap.** `create()` startet immer auf
-  ganz Baden-Württemberg (`FVAMap.BW_BOUNDS`). Eine `karte_*.html` setzt
-  `bounds` **nicht** – nur echte Ausnahmen geben stattdessen `center`/`zoom`
-  an (diese gewinnen dann gegen `bounds`).
+  ganz Baden-Württemberg (intern `BW_BOUNDS` in `basemap.js`). Eine
+  `karte_*.html` setzt `bounds` **nicht** – nur echte Ausnahmen geben
+  stattdessen `center`+`zoom` zusammen an (diese gewinnen dann gegen `bounds`).
 - **Legende immer über `FVAMap.addLegend(map, {...})`** – erzwingt die gemeinsame
   Position **unten rechts**. Nicht selbst `map.addControl(legend, ...)` aufrufen.
 - **Eigene Controls** (Timeline, Layer-Auswahl, …): Container-Klasse
@@ -57,15 +57,6 @@ python3 -m http.server
 Neue Karte anlegen: `maps/karte_basemap.html` kopieren und einen Eintrag im
 `MAPS`-Array in `index.html` ergänzen.
 
-## Versionierung / Cache-Bust
-
-`base/basemap.js` und `base/basemap.css` werden in jeder `karte_*.html` mit
-`?v=YYYYMMDD` eingebunden. **Bei jeder Änderung an `base/` oder `vendor/` diesen
-Marker in allen `maps/karte_*.html` auf das aktuelle Datum setzen**, sonst
-sehen Besucher wegen Browser-/Proxy-Caching alte Stände. (Aktuell: `20260917`.)
-
-Ein kleiner Build-Schritt, der den Marker automatisch setzt, wäre der nächste
-sinnvolle Ausbau.
 
 ## Bekannte Abweichung: `karte_eps.html`
 

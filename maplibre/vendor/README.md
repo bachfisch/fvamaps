@@ -31,9 +31,8 @@ curl -L -o leaflet.js  https://cdn.jsdelivr.net/npm/leaflet@<version>/dist/leafl
 curl -L -o leaflet.css https://cdn.jsdelivr.net/npm/leaflet@<version>/dist/leaflet.css
 ```
 
-Nach jedem Update: Tabelle oben anpassen, `?v=`-Marker in den `karte_*.html`
-(siehe `../README.md`, Abschnitt „Versionierung“) erhöhen und die vier Karten
-in `../../index.html` durchklicken.
+Nach jedem Update: Tabelle oben anpassen und die vier Karten in
+`../../index.html` durchklicken.
 
 ## Nicht selbst gehostet: die Basemap-Kacheln
 
