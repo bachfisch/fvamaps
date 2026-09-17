@@ -8,16 +8,58 @@
  *
  * Namespace: window.FVAMap
  *
- * Design-Tokens: KANONISCH in base/basemap.css (:root { --fva-* }). Das
- * THEME-Objekt hier wird beim Laden UND bei jedem create()-Aufruf aus
- * diesen CSS-Variablen aufgefrischt; die Literale unten sind nur der
- * Fallback, falls das Stylesheet noch nicht geladen ist.
+ * Design-Tokens (Farben, Schrift): KANONISCH in base/basemap.css als
+ * CSS-Custom-Properties (:root { --fva-* }). Wird hier nirgends als JS
+ * gebraucht - eigene Grafiken/Controls lesen die Werte direkt per
+ * var(--fva-green) im CSS, siehe basemap.css und die style-Blöcke der
+ * einzelnen karte_*.html.
+ *
+ * KONVENTION - diese Dinge gelten für JEDE Karte fest und sind bewusst
+ * KEINE Optionen von create(), damit keine karte_*.html versehentlich
+ * davon abweichen kann:
+ *   - Fullscreen-Control an
+ *   - Rotation gesperrt (Drag + Touch)
+ *   - Style-Fallback auf rohe OSM-Kacheln, falls der Haupt-Style nicht ladbar ist
+ *   - statische Attribution statt der interaktiven MapLibre-(i)-Box
  * ---------------------------------------------------------------------
  */
 (function (global) {
   "use strict";
 
-  const DEFAULT_STYLE = "https://tiles.openfreemap.org/styles/positron";
+  const PRIMARY_STYLE = "https://tiles.openfreemap.org/styles/positron";
+
+  // Kommt nur zum Einsatz, wenn PRIMARY_STYLE nicht ladbar ist (Dienst down
+  // o.ä.). Baut die Karte direkt aus rohen Kacheln, unabhängig von einem
+  // zweiten style.json-Dienst.
+  const FALLBACK_STYLE = {
+    version: 8,
+    sources: {
+      "osm-fallback": {
+        type: "raster",
+        tiles: [
+          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: "© OpenStreetMap-Mitwirkende",
+      },
+    },
+    layers: [{ id: "osm-fallback-layer", type: "raster", source: "osm-fallback" }],
+  };
+
+  // Standard-Attributionstext, wenn eine Karte keinen eigenen angibt.
+  // Volltext von https://tiles.openfreemap.org/planet (TileJSON-Feld
+  // "attribution") übernommen - das ist exakt das, was MapLibres native
+  // (i)-Box vorher angezeigt hat, als attributionControl noch nicht auf
+  // false stand. Als FVAMap.DEFAULT_ATTRIBUTION exportiert, damit einzelne
+  // Karten zusätzliche Quellen anhängen können, ohne den Pflichttext neu
+  // abschreiben zu müssen:
+  //   FVAMap.create({ ..., attribution: FVAMap.DEFAULT_ATTRIBUTION + " · Daten: XY" })
+  const DEFAULT_ATTRIBUTION =
+    '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ' +
+    '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">&copy; OpenMapTiles</a> ' +
+    'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
   // Standard-Kartenausschnitt: ganz Baden-Württemberg (aus den WRW-
   // Landkreis-Flächen ermittelt). JEDE Karte startet hiermit – eine
@@ -30,46 +72,6 @@
   // Nur Fallback, falls eine Karte bewusst mit center/zoom statt bounds startet.
   const BW_CENTER = [9.15, 48.65];
   const BW_ZOOM = 7.2;
-
-  /** Zentrale Design-Tokens für JS (z. B. in Karten gebaute Grafiken), damit
-   *  sie zur Basemap passen – Zugriff über FVAMap.THEME. Die Werte hier sind
-   *  Fallbacks; refreshTheme() überschreibt sie mit den tatsächlichen
-   *  CSS-Variablen aus base/basemap.css (kanonische Quelle). */
-  const THEME = {
-    colorPrimary: "#006e60",
-    colorPrimaryDark: "#00544a",
-    colorText: "#343a40",
-    colorTextMuted: "#6c757d",
-    colorBorder: "#dee2e6",
-    colorDanger: "#ff4136",
-    fontFamily:
-      '"PT Sans Narrow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
-  };
-
-  /** Liest eine CSS-Custom-Property von :root, mit Fallback. */
-  function cssVar(name, fallback) {
-    try {
-      const v = getComputedStyle(document.documentElement)
-        .getPropertyValue(name)
-        .trim();
-      return v || fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
-
-  /** Frischt THEME aus den CSS-Variablen auf (CSS ist die kanonische Quelle). */
-  function refreshTheme() {
-    THEME.colorPrimary = cssVar("--fva-green", THEME.colorPrimary);
-    THEME.colorPrimaryDark = cssVar("--fva-green-dark", THEME.colorPrimaryDark);
-    THEME.colorText = cssVar("--fva-text", THEME.colorText);
-    THEME.colorTextMuted = cssVar("--fva-text-muted", THEME.colorTextMuted);
-    THEME.colorBorder = cssVar("--fva-border", THEME.colorBorder);
-    THEME.colorDanger = cssVar("--fva-danger", THEME.colorDanger);
-    THEME.fontFamily = cssVar("--fva-font", THEME.fontFamily);
-    return THEME;
-  }
-  refreshTheme();
 
   /** Zeigt eine Fehlermeldung direkt im Karten-Container an (z. B. wenn WebGL
    *  fehlt oder der Style nicht geladen werden kann). */
@@ -89,46 +91,42 @@
 
   /**
    * Erstellt eine MapLibre-Karte mit den gemeinsamen Grundeinstellungen.
+   * Fullscreen, gesperrte Rotation, Style-Fallback und die statische
+   * Attribution gelten IMMER (siehe Konvention oben) und sind bewusst
+   * keine Optionen mehr.
    * @param {Object} options
    * @param {string} [options.container="map"]
    * @param {[number,number][]} [options.bounds] – Standard: ganz Baden-Württemberg (BW_BOUNDS); i.d.R. NICHT überschreiben
    * @param {[number,number]} [options.center] – Ausnahmefall: statt bounds mit center/zoom starten (gewinnt gegen bounds)
    * @param {number} [options.zoom] – Ausnahmefall, zusammen mit center
-   * @param {boolean} [options.showNavigation=true]
-   * @param {boolean} [options.showFullscreen=true]
-   * @param {boolean} [options.showCompass=false]
-   * @param {boolean} [options.disableRotation=true]
    * @param {string}  [options.ariaLabel] – Beschriftung des Karten-Containers für Screenreader
    * @param {string}  [options.errorMessage] – Text bei fehlgeschlagener Initialisierung
-   * @param {string}  [options.style] – Basemap-Style-URL, fest vorgegeben, i.d.R. nicht überschreiben
+   * @param {string}  [options.attribution] – überschreibt DEFAULT_ATTRIBUTION komplett; eigene Quelle anhängen z.B. mit FVAMap.DEFAULT_ATTRIBUTION + " · Daten: ...". Leerstring/false blendet die Attribution aus (nur falls rechtlich unnötig).
    * @returns {maplibregl.Map}
    */
   function create(options) {
-    refreshTheme();
-
     const cfg = Object.assign(
       {
         container: "map",
-        style: DEFAULT_STYLE,
         // Standard = ganz Baden-Württemberg. center/zoom bleiben null und
         // werden nur ausgewertet, wenn eine Karte sie ausdrücklich setzt.
         bounds: BW_BOUNDS,
         center: null,
         zoom: null,
         fitBoundsOptions: { padding: 40 },
-        showNavigation: true,
-        showFullscreen: true,
-        showCompass: false,
-        disableRotation: true,
         ariaLabel: "Interaktive Karte",
         errorMessage: null,
+        attribution: DEFAULT_ATTRIBUTION,
       },
       options || {}
     );
 
     const mapOptions = {
       container: cfg.container,
-      style: cfg.style,
+      style: PRIMARY_STYLE,
+      // Native (i)-Box aus - wir zeigen stattdessen einen festen Text
+      // (siehe createAttributionControl unten), fest für jede Karte.
+      attributionControl: false,
     };
 
     // Ausnahmefall: Karte gibt explizit center/zoom vor -> das gewinnt.
@@ -150,10 +148,28 @@
       throw err;
     }
 
-    // Nicht-fatale Laufzeitfehler (Tile-/Style-/Quellenfehler) sichtbar loggen,
-    // statt sie stillschweigend zu verschlucken.
+    // Springt nur ein, wenn das GANZE Style-Dokument beim initialen Laden
+    // nicht ladbar war (e.sourceId fehlt dann) - nicht bei einer einzelnen
+    // kaputten Kachel oder einer fachspezifischen Quelle, die eine
+    // karte_*.html selbst hinzufügt (die hat immer eine sourceId).
+    // Zusätzlich an styleLoaded gebunden: Sprite-/Glyph-Fehler melden sich
+    // ebenfalls ohne sourceId, können aber jederzeit während der Session
+    // auftreten (nicht nur beim initialen Laden) - ohne diese Absicherung
+    // würde ein solcher später Fehler den kompletten Style austauschen und
+    // damit alle von der Karte selbst hinzugefügten Layer/Quellen löschen.
+    let fallbackApplied = false;
+    let styleLoaded = false;
+    map.once("load", () => {
+      styleLoaded = true;
+    });
     map.on("error", (e) => {
-      console.error("[FVAMap] MapLibre-Fehler:", (e && e.error) || e);
+      if (!fallbackApplied && !styleLoaded && e && e.sourceId === undefined) {
+        fallbackApplied = true;
+        console.warn("[FVAMap] Basemap-Style nicht ladbar, wechsle auf Fallback:", e.error);
+        map.setStyle(FALLBACK_STYLE);
+      } else {
+        console.error("[FVAMap] MapLibre-Fehler:", (e && e.error) || e);
+      }
     });
 
     // Barrierefreiheit: Container als Region mit Beschriftung auszeichnen.
@@ -165,21 +181,39 @@
       /* ignore */
     }
 
-    if (cfg.disableRotation) {
-      map.dragRotate.disable();
-      map.touchZoomRotate.disableRotation();
-    }
-    if (cfg.showNavigation) {
-      map.addControl(
-        new maplibregl.NavigationControl({ showCompass: cfg.showCompass }),
-        "top-left"
-      );
-    }
-    if (cfg.showFullscreen) {
-      map.addControl(new maplibregl.FullscreenControl(), "top-left");
+    // Gilt jetzt fest für JEDE Karte - keine Optionen mehr, die es pro
+    // Karte abschalten könnten.
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    map.addControl(new maplibregl.FullscreenControl(), "top-left");
+
+    if (cfg.attribution) {
+      map.addControl(createAttributionControl(cfg.attribution), "bottom-right");
     }
 
     return map;
+  }
+
+  /** Eigene, dauerhaft sichtbare Attribution statt der interaktiven
+   *  MapLibre-(i)-Box (siehe attributionControl:false oben). Bewusst KEIN
+   *  "app-ctrl" (das gäbe den üblichen 10px-Rand wie Legende/Nav) - stattdessen
+   *  MapLibres eigene "maplibregl-ctrl-attrib"-Klasse (siehe
+   *  vendor/maplibre-gl.css), damit die Box wie vorher bei der nativen
+   *  Attribution bündig unten rechts sitzt, statt vom Kartenrand abzurücken. */
+  function createAttributionControl(html) {
+    let el;
+    return {
+      onAdd() {
+        el = document.createElement("div");
+        el.className = "maplibregl-ctrl maplibregl-ctrl-attrib fva-attribution";
+        el.innerHTML = html;
+        return el;
+      },
+      onRemove() {
+        el && el.parentNode && el.parentNode.removeChild(el);
+      },
+    };
   }
 
   /** Verhindert, dass Scroll-/Klick-Gesten in einem Overlay (z. B. Legende,
@@ -204,16 +238,19 @@
    * Unterstützt entweder eine einfache Farb-/Label-Liste (`items`) oder,
    * für aufwändiger gestaltete Legenden, direktes HTML (`html`).
    *
+   * Immer einklappbar (keine Option mehr, siehe Konvention oben). Auf
+   * kleinen Bildschirmen (<=600px) startet sie automatisch eingeklappt,
+   * damit man dort nicht nur Legende statt Karte sieht; sonst offen.
+   *
    * @param {Object} opts
    * @param {string} opts.title
    * @param {{color:string, label:string}[]} [opts.items]
    * @param {string} [opts.html] – alternative zu items: fertiges HTML für den Inhalt
    * @param {string} [opts.note] – optionaler Hinweistext unter der Legende
-   * @param {boolean} [opts.collapsible=true]
    * @returns {Object} MapLibre-IControl
    */
   function createLegendControl(opts) {
-    const cfg = Object.assign({ collapsible: true }, opts || {});
+    const cfg = opts || {};
     let box;
     return {
       onAdd() {
@@ -224,17 +261,12 @@
         box.className = "maplibregl-ctrl map-legend app-ctrl";
         stopMapPropagation(box);
 
-        const header = document.createElement(cfg.collapsible ? "button" : "div");
+        const header = document.createElement("button");
+        header.type = "button";
         header.className = "map-legend__header";
-        if (cfg.collapsible) {
-          header.type = "button";
-          header.setAttribute("aria-expanded", "true");
-        }
         header.innerHTML =
           `<span>${cfg.title}</span>` +
-          (cfg.collapsible
-            ? '<span class="map-legend__chevron" aria-hidden="true">&#9662;</span>'
-            : "");
+          '<span class="map-legend__chevron" aria-hidden="true">&#9662;</span>';
         box.appendChild(header);
 
         const itemsWrap = document.createElement("div");
@@ -262,12 +294,17 @@
 
         box.appendChild(itemsWrap);
 
-        if (cfg.collapsible) {
-          header.addEventListener("click", () => {
-            const collapsed = box.classList.toggle("is-collapsed");
-            header.setAttribute("aria-expanded", String(!collapsed));
-          });
-        }
+        // Fester Standard (keine Option): auf kleinen Screens eingeklappt
+        // starten, sonst offen. 600px ~ Smartphone-Breite.
+        const startCollapsed =
+          !!(global.matchMedia && global.matchMedia("(max-width: 600px)").matches);
+        header.setAttribute("aria-expanded", String(!startCollapsed));
+        if (startCollapsed) box.classList.add("is-collapsed");
+
+        header.addEventListener("click", () => {
+          const collapsed = box.classList.toggle("is-collapsed");
+          header.setAttribute("aria-expanded", String(!collapsed));
+        });
 
         return box;
       },
@@ -415,19 +452,77 @@
   }
 
   // -------------------------------------------------------------------
+  // Zentriertes Modal (fixer Viewport-Overlay, IMMER mittig) - für
+  // Popup-Inhalte, die zu breit/hoch für ein normales maplibregl.Popup
+  // taugen (Bilder, Charts). Ein map.Popup+setLngLat() zeigt IMMER an
+  // einem geografischen Punkt und springt damit je nach Klickort/
+  // Kartenausschnitt an eine andere Stelle - für so einen breiten Inhalt
+  // störend. Struktur/Optik angelehnt an das bisherige EPS-eigene Modal
+  // (siehe karte_eps.html), aber generisch: der Aufrufer baut Header+Body
+  // selbst (z.B. die übliche .fva-popup-Struktur) und übergibt sie hier
+  // nur noch als fertigen Inhalt. Einmal pro Seite initialisiert (wie
+  // initImageLightbox oben), Inhalt wird bei jedem open() ausgetauscht.
+  // -------------------------------------------------------------------
+  function ensureModal() {
+    let overlay = document.getElementById("fva-modal-overlay");
+    if (overlay) return overlay;
+
+    overlay = document.createElement("div");
+    overlay.id = "fva-modal-overlay";
+    overlay.className = "fva-modal-overlay";
+    overlay.innerHTML =
+      '<div class="fva-modal" role="dialog" aria-modal="true">' +
+      '<button type="button" class="fva-modal__close" aria-label="Schließen"></button>' +
+      '<div class="fva-modal__body"></div>' +
+      "</div>";
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.classList.remove("is-open");
+      overlay.querySelector(".fva-modal__body").innerHTML = "";
+    }
+    overlay.querySelector(".fva-modal__close").addEventListener("click", close);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(); // Klick auf den Hintergrund, nicht auf die Modal-Box
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
+    });
+    overlay._fvaClose = close;
+    return overlay;
+  }
+
+  /**
+   * Öffnet ein zentriertes Modal mit content als Inhalt. content baut der
+   * Aufrufer selbst (üblicherweise die normale .fva-popup-Struktur aus
+   * Header + Body, siehe karte_wrw.html/karte_level2.html) - hier wird nur
+   * noch die Positionierung/der Hintergrund/das Schließen übernommen.
+   * @param {HTMLElement} content
+   * @returns {{ close: () => void }}
+   */
+  function openModal(content) {
+    const overlay = ensureModal();
+    const body = overlay.querySelector(".fva-modal__body");
+    body.innerHTML = "";
+    body.appendChild(content);
+    overlay.classList.add("is-open");
+    return { close: overlay._fvaClose };
+  }
+
+  // -------------------------------------------------------------------
   // Export
   // -------------------------------------------------------------------
 
   const api = {
     BW_BOUNDS,
-    THEME,
-    refreshTheme,
+    DEFAULT_ATTRIBUTION,
     create,
     stopMapPropagation,
     createLegendControl,
     addLegend,
     enableHoverState,
     initImageLightbox,
+    openModal,
     createHoverTooltip,
   };
 

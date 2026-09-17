@@ -6,13 +6,13 @@
   <title>Wasserrückhalt im Wald – Karte</title>
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css?v=20260908" />
+  <link rel="stylesheet" href="../base/basemap.css?v=20260917" />
 </head>
 <body>
   <div id="map"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js?v=20260908"></script>
+  <script src="../base/basemap.js?v=20260917"></script>
   <script>
     /**
      * WRW – Wasserrückhalt im Wald
@@ -134,7 +134,7 @@
 
         // -- Klick-Popup nur für Standorte ---------------------------------
         map.on("click", "standorte-punkte", (e) => {
-          openStandortPopup(map, e.lngLat, e.features[0].properties);
+          openStandortPopup(e.features[0].properties);
         });
 
         // -- Legende (Standardformat, immer unten rechts) ----------------
@@ -146,7 +146,7 @@
     }
 
     /** Öffnet das Popup für einen Maßnahmenstandort (Hülle + Inhalt). */
-    function openStandortPopup(map, lngLat, props) {
+    function openStandortPopup(props) {
       const root = document.createElement("div");
       root.className = "fva-popup fva-popup--large";
 
@@ -200,9 +200,8 @@
         body.appendChild(wrap);
       }
 
-      let popupImg = null;
       if (props.popup_img) {
-        popupImg = document.createElement("img");
+        const popupImg = document.createElement("img");
         popupImg.className = "fva-popup__img";
         popupImg.src = props.popup_img;
         popupImg.setAttribute("data-full", props.popup_img);
@@ -210,20 +209,13 @@
         body.appendChild(popupImg);
       }
 
-      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "none" })
-        .setLngLat(lngLat)
-        .setDOMContent(root)
-        .addTo(map);
-
-      // Das Popup-Bild wird asynchron geladen; die Popup-Höhe ändert sich
-      // dadurch nachträglich. Nach dem Laden neu positionieren, damit MapLibre
-      // den Anker (oben/unten) an die endgültige Höhe anpasst – sonst klemmt
-      // das Popup am oberen iframe-Rand statt nach unten zu öffnen.
-      if (popupImg) {
-        const reposition = () => popup.setLngLat(lngLat);
-        if (popupImg.complete) requestAnimationFrame(reposition);
-        else popupImg.addEventListener("load", reposition, { once: true });
-      }
+      // Zentriertes Modal statt maplibregl.Popup + setLngLat() - das Bild
+      // kann groß sein, und ein an den Standort verankertes Popup würde je
+      // nach Klickposition/Kartenausschnitt irgendwo am Rand aufklappen statt
+      // sich wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
+      // Repositionieren nach dem Bildladen mehr nötig - das Modal hat keinen
+      // Anker, der sich verschieben könnte.
+      FVAMap.openModal(root);
     }
   </script>
 </body>

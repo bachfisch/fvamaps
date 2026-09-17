@@ -9,7 +9,7 @@ eingebunden je Karte per `<iframe>`.
 
 ```
 maplibre/
-  vendor/        Fremdbibliotheken, selbst gehostet (MapLibre, html-to-image) – siehe vendor/README.md
+  vendor/        Fremdbibliotheken, selbst gehostet (MapLibre, html-to-image, Plotly) – siehe vendor/README.md
   base/          basemap.js + basemap.css  →  DIE gemeinsame Basis, nur hier ändern
   maps/          karte_*.html  →  je Karte eine Datei, nur fachspezifischer Code
     data/        Geodaten (WRW)
@@ -59,7 +59,7 @@ Neue Karte anlegen: `maps/karte_basemap.html` kopieren und einen Eintrag im
 `base/basemap.js` und `base/basemap.css` werden in jeder `karte_*.html` mit
 `?v=YYYYMMDD` eingebunden. **Bei jeder Änderung an `base/` oder `vendor/` diesen
 Marker in allen `maps/karte_*.html` auf das aktuelle Datum setzen**, sonst
-sehen Besucher wegen Browser-/Proxy-Caching alte Stände. (Aktuell: `20260908`.)
+sehen Besucher wegen Browser-/Proxy-Caching alte Stände. (Aktuell: `20260917`.)
 
 Ein kleiner Build-Schritt, der den Marker automatisch setzt, wäre der nächste
 sinnvolle Ausbau.

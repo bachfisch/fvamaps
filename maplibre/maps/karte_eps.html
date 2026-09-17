@@ -6,9 +6,9 @@
 
 <!-- Gemeinsame FVA-Basemap -->
 <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-<link rel="stylesheet" href="../base/basemap.css?v=20260908" />
+<link rel="stylesheet" href="../base/basemap.css?v=20260917" />
 <script src="../vendor/maplibre-gl.js"></script>
-<script src="../base/basemap.js?v=20260908"></script>
+<script src="../base/basemap.js?v=20260917"></script>
 <!-- PNG-Export der Popup-Grafik/-Tabelle. html-to-image 1.11.13, MIT-Lizenz,
      siehe vendor/README.md. -->
 <script src="../vendor/html-to-image.js?v=20260908"></script>
@@ -729,11 +729,17 @@ function rebuildTimeline(dates) {
 // ============================================================
 
 // Karten-Init über die gemeinsame Basemap (Style, Navigation, Fullscreen,
-// Kartenausschnitt).
+// Kartenausschnitt, statische Attribution).
+// DWD-Quelle wird hier an die Standard-Attribution angehängt, weil die
+// native (i)-Box (die früher die "attribution"-Property einzelner
+// Sources unten in showLayer() eingesammelt hat) jetzt aus ist - ohne
+// diesen Zusatz würde der DWD-Hinweis nirgends mehr auftauchen.
 const map = FVAMap.create({
   container: 'map',
   // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
-  ariaLabel: 'Eichenprozessionsspinner – Entwicklungsstadien und Regulierung (DWD PHENTHAUproc)'
+  ariaLabel: 'Eichenprozessionsspinner – Entwicklungsstadien und Regulierung (DWD PHENTHAUproc)',
+  attribution: FVAMap.DEFAULT_ATTRIBUTION +
+    ' · Kartendaten: <a href="https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html" target="_blank" rel="noopener">DWD PHENTHAUproc</a>'
 });
 
 
@@ -783,11 +789,13 @@ function showLayer(layerKey, timelineIndex) {
   // Add new layer/source at opacity 0, reveal only once tiles are loaded.
   // MapLibre sources/layers need unique ids, so each date+layer combo gets one.
   const newId = `wms-layer-${wmsLayerCounter++}`;
+  // Kein "attribution" mehr hier: die native Attribution-Box, die das
+  // früher eingesammelt hätte, ist aus (siehe FVAMap.create()-Aufruf
+  // oben). Der DWD-Hinweis steht jetzt fest in der statischen Attribution.
   map.addSource(newId, {
     type:     'raster',
     tiles:    [buildWmsTileUrl(config, isoDate)],
-    tileSize: 256,
-    attribution: "<a href='https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html' target='_blank'>DWD PHENTHAUproc</a>"
+    tileSize: 256
   });
   map.addLayer({
     id:     newId,
@@ -826,15 +834,15 @@ function showLayer(layerKey, timelineIndex) {
     ? 'Präventiv bedeutet hier eine Behandlung vor Ausbildung größerer Brennhaar-Mengen.<br>' +
       'Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarquelle sind ganzjährig möglich.'
     : undefined;
-  // FVAMap.addLegend erzwingt die gemeinsame Position (unten rechts).
+  // FVAMap.addLegend erzwingt die gemeinsame Position (unten rechts) und
+  // ist jetzt immer einklappbar - "collapsible" gibt's nicht mehr als Option.
   activeLegend = FVAMap.addLegend(map, {
     title: layerKey,
     items: Object.values(config.legend).map(s => ({ color: s.color, label: s.label })),
     note: legendNote,
-    collapsible: true,
   });
 
-  document.getElementById('date-display').textContent = isoDate.split('T')[0];
+  document.getElementById('date-display').textContent = formatDateGerman(isoDate.split('T')[0]);
 }
 
 

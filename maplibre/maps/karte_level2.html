@@ -6,7 +6,7 @@
   <title>Level II Bodenfeuchtemonitoring – Karte</title>
 
   <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="../base/basemap.css?v=20260908" />
+  <link rel="stylesheet" href="../base/basemap.css?v=20260917" />
 
   <!--
     Nur für diese Karte: Tabs + Grafik im Standort-Popup.
@@ -14,14 +14,40 @@
     das (noch) braucht - siehe Kommentar in karte_basemap.html.
   -->
   <style>
+    /* .fva-popup--large deckelt normale Popups in basemap.css auf max-width:520px -
+       genau richtig für Bild-/Text-Popups, aber hier brauchen wir die volle, per JS
+       berechnete Breite (90% der Kartenbreite) für die Plotly-Grafik. Anders als das
+       alte Hand-SVG (skalierte sich per viewBox automatisch auf die verfügbare Breite
+       runter) rendert Plotly mit einer festen Pixelbreite (layout.width) - ohne diese
+       Aufhebung würde die Grafik am 520px-Deckel des Popup-Rahmens abgeschnitten. */
+    .fva-popup--level2.fva-popup--large { max-width: none; }
+
     /* Breite wird pro Popup dynamisch in JS gesetzt (~90% der Kartenbreite);
-       das hier ist nur der Fallback, falls JS aus irgendeinem Grund nicht greift. */
-    .fva-popup--level2 .fva-popup__body { width: 480px; max-width: 90vw; }
+       das hier ist nur der Fallback, falls JS aus irgendeinem Grund nicht greift.
+       max-height/overflow-y aus basemap.css (.fva-popup__body, dort 360px für
+       normale, klein bleibende maplibregl.Popups gedacht) hier aufgehoben -
+       das umschließende .fva-modal übernimmt diesen Job jetzt selbst
+       (max-height:92vh + Scroll). Ohne diese Aufhebung würde die Grafik
+       innerhalb des Modals trotzdem bei 360px abgeschnitten/gescrollt,
+       unabhängig davon, wie hoch chartHeight berechnet wird. */
+    .fva-popup--level2 .fva-popup__body {
+      width: 480px;
+      max-width: 90vw;
+      max-height: none;
+      overflow-y: visible;
+    }
 
     .wh-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: #555; margin-bottom: 10px; }
     .wh-meta b { color: #222; }
 
-    .wh-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ddd; margin-bottom: 8px; }
+    /* Tiefen-Tabs + Export-Button in einer Zeile - der Rand/Abstand, den
+       vorher .wh-tabs alleine trug, sitzt jetzt hier, damit er über die
+       volle Breite (inkl. Button) durchläuft statt nur unter den Tabs. */
+    .wh-tabs-row {
+      display: flex; align-items: flex-end; gap: 8px;
+      border-bottom: 1px solid #ddd; margin-bottom: 8px;
+    }
+    .wh-tabs { display: flex; gap: 4px; flex: 1; }
     .wh-tab {
       appearance: none; border: none; background: none; cursor: pointer;
       padding: 6px 12px; font-size: 13px; color: #666; border-bottom: 2px solid transparent;
@@ -30,16 +56,19 @@
     .wh-tab:hover { color: #2F6B4F; }
     .wh-tab--active { color: #2F6B4F; border-bottom-color: #2F6B4F; font-weight: 600; }
 
-    .wh-chart { position: relative; }
-    .wh-chart svg { display: block; width: 100%; height: auto; cursor: crosshair; }
-
-    .wh-tooltip {
-      position: absolute; z-index: 5; pointer-events: none; display: none;
-      background: rgba(255,255,255,0.97); border: 1px solid #ccc; border-radius: 4px;
-      padding: 5px 8px; font-size: 12px; line-height: 1.5; color: #222;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15); white-space: nowrap;
+    /* PNG-Export - gleiche Optik wie #print-btn in karte_eps.html. */
+    .wh-export-btn {
+      flex-shrink: 0; margin-bottom: 6px;
+      background: none; border: 1px solid #ccc; border-radius: 5px;
+      padding: 3px 9px; font-size: 12px; font-family: inherit;
+      cursor: pointer; color: #555;
     }
-    .wh-tooltip b { display: block; margin-bottom: 2px; }
+    .wh-export-btn:hover { background: #f5f5f5; }
+    .wh-export-btn:disabled { cursor: default; opacity: 0.6; }
+
+    /* Der Plot selbst (Achsen, Hover, Crosshair) kommt jetzt komplett von
+       Plotly.js - hier nur noch der Rahmen für den Container. */
+    .wh-chart { position: relative; }
 
     .wh-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: #555; margin-top: 6px; }
     .wh-legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -53,7 +82,11 @@
   <div id="map"></div>
 
   <script src="../vendor/maplibre-gl.js"></script>
-  <script src="../base/basemap.js?v=20260908"></script>
+  <script src="../base/basemap.js?v=20260917"></script>
+  <!-- Nur für die Wasserhaushalts-Grafik im Klick-Popup dieser Karte (siehe WHChart unten). -->
+  <script src="../vendor/plotly-basic.min.js?v=20260917"></script>
+  <!-- PNG-Export der Grafik (siehe exportChartPng unten), wie in karte_eps.html -->
+  <script src="../vendor/html-to-image.js?v=20260908"></script>
   <script>
     /**
      * Level II – Bodenfeuchtemonitoring
@@ -153,7 +186,7 @@
 
         // -- Klick-Popup: Metadaten + Wasserhaushalts-Grafik -------------
         map.on("click", "standorte-punkte", (e) => {
-          openStandortPopup(map, e.lngLat, e.features[0].properties);
+          openStandortPopup(map, e.features[0].properties);
         });
 
         // -- Legende (Standardformat, immer unten rechts) ----------------
@@ -165,7 +198,7 @@
     }
 
     /** Öffnet das Popup für einen Level-II-Standort (Hülle + Metadaten + Grafik). */
-    function openStandortPopup(map, lngLat, props) {
+    function openStandortPopup(map, props) {
       const root = document.createElement("div");
       root.className = "fva-popup fva-popup--large fva-popup--level2";
 
@@ -180,10 +213,17 @@
 
       const body = document.createElement("div");
       body.className = "fva-popup__body";
-      // ~90% der Kartenbreite (5% Rand links/rechts) statt fixer Breite -
-      // die Grafik darf fast die ganze Kartenbreite nutzen.
-      body.style.width = Math.round(map.getContainer().clientWidth * 0.9) + "px";
+      // 90% der Kartenbreite (5% Rand links/rechts) statt fixer Breite - die
+      // Grafik darf fast die ganze Kartenbreite nutzen. plotWidth wird unten
+      // zusätzlich explizit als Plotly-layout.width durchgereicht, statt sich
+      // auf Plotlys eigene Container-Breitenermittlung zu verlassen.
+      const plotWidth = Math.round(map.getContainer().clientWidth * 0.9);
+      body.style.width = plotWidth + "px";
       root.appendChild(body);
+      // Obergrenze für die Grafik-Höhe (90% der Kartenhöhe) - buildTabs()
+      // zieht davon noch Header/Meta/Tabs/Legende ab, damit die Grafik den
+      // verbleibenden Platz ausnutzt, ohne das Modal unnötig aufzublähen.
+      const plotHeight = Math.round(map.getContainer().clientHeight * 0.9);
 
       const meta = document.createElement("div");
       meta.className = "wh-meta";
@@ -198,12 +238,13 @@
       chartWrap.textContent = "Lade Wasserhaushalt …";
       body.appendChild(chartWrap);
 
-      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "none" })
-        .setLngLat(lngLat)
-        .setDOMContent(root)
-        .addTo(map);
-
-      const reposition = () => popup.setLngLat(lngLat);
+      // Zentriertes Modal statt maplibregl.Popup + setLngLat() - bei 90%
+      // Kartenbreite würde ein am Standort verankertes Popup sonst je nach
+      // Klickposition/Kartenausschnitt irgendwo am Rand aufklappen statt sich
+      // wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
+      // Repositionieren nach dem Laden/Tab-Wechsel mehr nötig - das Modal hat
+      // keinen Anker, der sich verschieben könnte.
+      FVAMap.openModal(root);
 
       // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
       // Namen ableiten ("Altensteig Buche" -> "Altensteig").
@@ -212,7 +253,6 @@
       if (props.wasserhaushalt_verfuegbar === false) {
         chartWrap.className = "wh-hint";
         chartWrap.textContent = "Wasserhaushalts-Grafik für diesen Standort folgt in Kürze.";
-        requestAnimationFrame(reposition);
         return;
       }
 
@@ -220,7 +260,7 @@
         .then((data) => {
           const tiefen = WHChart.getTiefen(data, props.baumart);
           if (!tiefen.length) throw new Error(`keine Tiefen für Baumart "${props.baumart}" in den CSV-Daten von ${standort}`);
-          buildTabs(chartWrap, data, { ...props, standort }, tiefen, reposition);
+          buildTabs(chartWrap, data, { ...props, standort }, tiefen, plotWidth, plotHeight);
         })
         .catch((err) => {
           console.error("[karte_level2] Wasserhaushalt konnte nicht geladen werden:", err);
@@ -228,22 +268,40 @@
           // Fehlertext bewusst sichtbar (statt generischer Meldung) - zeigt
           // sofort, ob z.B. der Standort-Name oder der Datenpfad nicht stimmt.
           chartWrap.textContent = "Wasserhaushalts-Grafik nicht verfügbar: " + err.message;
-        })
-        .finally(() => requestAnimationFrame(reposition));
+        });
     }
 
     /** Baut die Tiefen-Tabs + Chart-Container und zeichnet die erste Tiefe. */
-    function buildTabs(container, data, props, tiefen, reposition) {
+    function buildTabs(container, data, props, tiefen, plotWidth, plotHeight) {
       container.className = "";
       container.innerHTML = "";
 
+      // Tiefen-Tabs + Export-Button in einer Zeile (wie Tabs + "Export" im
+      // EPS-Modal-Header).
+      const tabsRow = document.createElement("div");
+      tabsRow.className = "wh-tabs-row";
+      container.appendChild(tabsRow);
+
       const tabs = document.createElement("div");
       tabs.className = "wh-tabs";
-      container.appendChild(tabs);
+      tabsRow.appendChild(tabs);
+
+      const exportBtn = document.createElement("button");
+      exportBtn.type = "button";
+      exportBtn.className = "wh-export-btn";
+      exportBtn.textContent = "Export";
+      exportBtn.addEventListener("click", exportChartPng);
+      tabsRow.appendChild(exportBtn);
+
+      // Grafik + Legende zusammen in einem Panel - das ist die Einheit, die
+      // exportChartPng() als PNG festh\u00e4lt (nicht die Tabs/den Button).
+      const panel = document.createElement("div");
+      panel.className = "wh-chart-panel";
+      container.appendChild(panel);
 
       const chartDiv = document.createElement("div");
       chartDiv.className = "wh-chart";
-      container.appendChild(chartDiv);
+      panel.appendChild(chartDiv);
 
       const legend = document.createElement("div");
       legend.className = "wh-legend";
@@ -258,14 +316,52 @@
           ["#737373", "Median (2010\u20132025)"],
           ["#D7263D", "Aktuelle nFK"],
         ].map(([c, l]) => `<span><i class="wh-legend--line" style="background:${c}"></i>${l}</span>`).join("");
-      container.appendChild(legend);
+      panel.appendChild(legend);
+
+      // plotHeight (90% der Kartenh\u00f6he) gilt f\u00fcr das GANZE Popup, nicht nur
+      // die Grafik - also erst Header/Meta-Zeile/Tabs/Legende abziehen. Fest
+      // gesch\u00e4tzt statt live gemessen (Header ~40px + Body-Padding ~24px +
+      // Meta-Zeile ~30px + Tabs ~37px + Legende ~30px), damit das Ergebnis
+      // nicht von DOM-Timing beim Messen abh\u00e4ngt. 240px Mindesth\u00f6he als
+      // Notbremse.
+      const CHROME_ESTIMATE_PX = 170;
+      const chartHeight = Math.max(240, plotHeight - CHROME_ESTIMATE_PX);
+
+      let currentTiefe = null;
 
       function selectTiefe(tiefe) {
+        currentTiefe = tiefe;
         [...tabs.children].forEach((btn) =>
           btn.classList.toggle("wh-tab--active", Number(btn.dataset.tiefe) === tiefe)
         );
-        WHChart.renderInto(chartDiv, data, props.baumart, tiefe, { standort: props.standort });
-        reposition();
+        WHChart.renderInto(chartDiv, data, props.baumart, tiefe, { standort: props.standort, plotWidth, chartHeight });
+      }
+
+      // PNG-Export der aktuell angezeigten Tiefe (Grafik + Legende), analog
+      // zu exportPng() in karte_eps.html.
+      async function exportChartPng() {
+        if (typeof htmlToImage === "undefined") {
+          console.error("[karte_level2] html-to-image nicht geladen");
+          return;
+        }
+        exportBtn.disabled = true;
+        const originalText = exportBtn.textContent;
+        exportBtn.textContent = "\u2026";
+        try {
+          const dataUrl = await htmlToImage.toPng(panel, {
+            pixelRatio: 2,
+            backgroundColor: "#ffffff",
+          });
+          const a = document.createElement("a");
+          a.download = `Wasserhaushalt_${props.standort}_${props.baumart}_${currentTiefe}cm.png`;
+          a.href = dataUrl;
+          a.click();
+        } catch (err) {
+          console.error("[karte_level2] PNG-Export fehlgeschlagen:", err);
+        } finally {
+          exportBtn.disabled = false;
+          exportBtn.textContent = originalText;
+        }
       }
 
       tiefen.forEach((tiefe) => {
@@ -284,8 +380,9 @@
 
   <!--
     Wasserhaushalt-Grafik (Quantilband + Median + aktueller Verlauf) als
-    eigenständiges, abhängigkeitsfreies Modul - reine SVG-Zeichnung, kein
-    zusätzlicher Vendor-Baustein nötig. Nur von dieser Karte genutzt.
+    eigenständiges Modul, gezeichnet mit Plotly.js (vendor/plotly-basic.min.js,
+    s.o.) - Achsen, Crosshair und Tooltip kommen jetzt von Plotly selbst statt
+    per Hand gebaut zu werden. Nur von dieser Karte genutzt.
   -->
   <script>
     const WHChart = (function () {
@@ -377,11 +474,6 @@
         [183, "Jul"], [214, "Aug"], [245, "Sep"], [275, "Okt"], [306, "Nov"], [336, "Dez"],
       ];
 
-      const W = 900, H = 340;
-      const M = { top: 12, right: 66, bottom: 40, left: 50 };
-      const PW = W - M.left - M.right;
-      const PH = H - M.top - M.bottom;
-
       // Fixe hydrologische Schwellen (unabhängig von den Quantilen/vom Standort),
       // exakt wie im Original.
       const THRESHOLDS = [
@@ -396,21 +488,6 @@
         { y0: 100, y1: 104, color: "#1E90FF", label: "nass" },
       ];
 
-      /** Baut einen Pfad, der bei Datenlücken (Tageslücke > 1) unterbrochen wird,
-       *  statt die Lücke mit einer Geraden zu überbrücken. */
-      function pathWithGaps(rows, dayFn, valFn, xFn, yFn) {
-        let d = "";
-        let prevDay = null;
-        rows.forEach((r) => {
-          const day = dayFn(r);
-          const val = valFn(r);
-          if (val === null || val === undefined) { prevDay = null; return; }
-          d += (prevDay === null || day - prevDay > 1 ? "M" : "L") + xFn(day) + "," + yFn(val) + " ";
-          prevDay = day;
-        });
-        return d.trim();
-      }
-
       const MONTH_NAMES = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
       function formatDayLabel(day) {
         const d = new Date(2026, 0, 1);
@@ -418,153 +495,204 @@
         return `${d.getDate()}. ${MONTH_NAMES[d.getMonth()]}`;
       }
 
-      /** Zeichnet die Grafik für (baumart, tiefe) in containerEl und verdrahtet
-       *  den Hover-Tooltip. containerEl wird dabei geleert und neu befüllt. */
+      /** Baut aus Zeilen zwei parallele x/y-Arrays für eine Plotly-Linie,
+       *  mit "null" an Tageslücken (>1 Tag) statt die Lücke mit einer
+       *  Geraden zu überbrücken - Plotly bricht die Linie dort automatisch
+       *  (connectgaps:false). */
+      function withGaps(rows, dayFn, valFn) {
+        const x = [], y = [];
+        let prevDay = null;
+        rows.forEach((r) => {
+          const day = dayFn(r);
+          const val = valFn(r);
+          if (val === null || val === undefined) { prevDay = null; return; }
+          if (prevDay !== null && day - prevDay > 1) { x.push(null); y.push(null); }
+          x.push(day);
+          y.push(val);
+          prevDay = day;
+        });
+        return { x, y };
+      }
+
+      /** Zeichnet die Grafik für (baumart, tiefe) mit Plotly.js in containerEl
+       *  (Plotly.newPlot räumt beim erneuten Aufruf auf demselben Div selbst
+       *  auf, z.B. beim Tiefen-Tab-Wechsel). Gibt das Promise von
+       *  Plotly.newPlot zurück, damit der Aufrufer nach dem tatsächlichen
+       *  Zeichnen (z.B. für ein Popup-Reposition) reagieren kann. */
       function renderInto(containerEl, data, baumart, tiefe, opts) {
-        containerEl.innerHTML = "";
         const qRows = (data.quartal[baumart] && data.quartal[baumart][tiefe]) || [];
         const aRows = (data.aktuell[baumart] && data.aktuell[baumart][tiefe]) || [];
         if (!qRows.length) {
           containerEl.innerHTML = `<div class="wh-hint">Keine Daten für ${tiefe} cm.</div>`;
-          return;
+          return Promise.resolve();
         }
 
+        const days   = qRows.map((r) => r.tag);
         const maxVal = Math.max(...qRows.map((r) => r.max));
-        const maxY = Math.ceil((maxVal * 1.08) / 20) * 20;
+        const maxY   = Math.ceil((maxVal * 1.08) / 20) * 20;
 
-        const x = (day) => M.left + ((day - 1) / 364) * PW;
-        const y = (val) => M.top + (1 - val / maxY) * PH;
+        // -- Quantilbänder: je Band zwei Scatter-Traces - untere Grenze
+        //    unsichtbar, obere Grenze mit fill:'tonexty' gegen die vorherige
+        //    Trace gefüllt. Reihenfolge der bandDefs = Reihenfolge der
+        //    Traces = min zuerst, damit "tonexty" jeweils gegen die direkt
+        //    davor liegende Grenze füllt. --------------------------------
+        const bandDefs = [
+          ["min", "q10", "#F4C2C2"],
+          ["q10", "q25", "#F5F5DC"],
+          ["q25", "q75", "#D3D3D3"],
+          ["q75", "q90", "#87CEEB"],
+          ["q90", "max", "#00BFFF"],
+        ];
+        const traces = [];
+        bandDefs.forEach(([lowerKey, upperKey, color], i) => {
+          if (i === 0) {
+            traces.push({ x: days, y: qRows.map((r) => r[lowerKey]), mode: "lines", line: { width: 0 }, hoverinfo: "skip", showlegend: false });
+          }
+          traces.push({ x: days, y: qRows.map((r) => r[upperKey]), mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: color, hoverinfo: "skip", showlegend: false });
+        });
 
-        function band(lowerKey, upperKey, color) {
-          const fwd = qRows.map((r) => `${x(r.tag)},${y(r[lowerKey])}`);
-          const bwd = [...qRows].reverse().map((r) => `${x(r.tag)},${y(r[upperKey])}`);
-          return `<polygon points="${fwd.concat(bwd).join(" ")}" fill="${color}" />`;
-        }
+        const medianXY = withGaps(qRows, (r) => r.tag, (r) => r.median);
+        traces.push({ x: medianXY.x, y: medianXY.y, mode: "lines", line: { color: "#737373", width: 2 }, connectgaps: false, hoverinfo: "skip", showlegend: false });
 
-        const bands =
-          band("q90", "max", "#00BFFF") +
-          band("q75", "q90", "#87CEEB") +
-          band("q25", "q75", "#D3D3D3") +
-          band("q10", "q25", "#F5F5DC") +
-          band("min", "q10", "#F4C2C2");
-
-        const medianPath = pathWithGaps(qRows, (r) => r.tag, (r) => r.median, x, y);
-        const median = `<path d="${medianPath}" fill="none" stroke="#737373" stroke-width="2" />`;
-
-        let aktuellPath = "";
-        let heute = "";
+        let heuteTag = null;
         if (aRows.length) {
-          const d = pathWithGaps(aRows, (r) => dayOfYear(r.datum), (r) => r.wert, x, y);
-          aktuellPath = `<path d="${d}" fill="none" stroke="#D7263D" stroke-width="2" />`;
-
-          const last = aRows[aRows.length - 1];
-          const heuteTag = dayOfYear(last.datum);
-          const hx = x(heuteTag);
-          const label = last.datum.split("-").reverse().join(".");
-          const boxX0 = x(Math.max(1, heuteTag - 4));
-          heute =
-            // Volle Höhe gepunktet ...
-            `<line x1="${hx}" y1="${M.top}" x2="${hx}" y2="${H - M.bottom}" stroke="#000" stroke-width="1" stroke-dasharray="2,2" />` +
-            // ... lila Box, die oben exakt an der feucht/nass-Trennlinie (100) endet.
-            `<rect x="${boxX0}" y="${y(100)}" width="${hx - boxX0}" height="${y(70) - y(100)}" fill="#9370DB" fill-opacity="0.9" />` +
-            `<text x="${hx - 6}" y="${y(70) - 6}" font-size="9" fill="#fff" text-anchor="start" transform="rotate(-90 ${hx - 6} ${y(70) - 6})">Heute: ${label}</text>`;
+          const aktuellXY = withGaps(aRows, (r) => dayOfYear(r.datum), (r) => r.wert);
+          traces.push({ x: aktuellXY.x, y: aktuellXY.y, mode: "lines", line: { color: "#D7263D", width: 2 }, connectgaps: false, hoverinfo: "skip", showlegend: false });
+          heuteTag = dayOfYear(aRows[aRows.length - 1].datum);
         }
 
-        // -- Schwellenlinien (fix, farbig) statt grauem Grid an diesen y-Werten --
-        const thresholdYs = THRESHOLDS.map((t) => t.val);
-        const grid = [];
-        for (let v = 0; v <= maxY; v += 20) {
-          if (thresholdYs.includes(v)) continue;
-          grid.push(`<line x1="${M.left}" y1="${y(v)}" x2="${W - M.right}" y2="${y(v)}" stroke="#e5e5e5" stroke-width="1" />`);
-        }
-        const thresholdLines = THRESHOLDS.filter((t) => t.val <= maxY)
-          .map((t) => `<line x1="${M.left}" y1="${y(t.val)}" x2="${W - M.right}" y2="${y(t.val)}" stroke="${t.color}" stroke-width="1.5" />`)
-          .join("");
-
-        const yTickLabels = [];
-        for (let v = 0; v <= maxY; v += 20) {
-          yTickLabels.push(`<text x="${M.left - 5}" y="${y(v) + 3}" font-size="9" fill="#666" text-anchor="end">${v}</text>`);
-        }
-
-        // -- Zonen-Beschriftungen rechts (Swatch + Text), wie im Original --
-        const zoneLabels = ZONES.filter((z) => z.y1 <= maxY * 1.2).map((z) => {
-          const cy = (y(z.y0) + y(z.y1)) / 2;
-          return `<rect x="${W - M.right + 6}" y="${cy - 4}" width="9" height="8" fill="${z.color}" />` +
-                 `<text x="${W - M.right + 18}" y="${cy + 3}" font-size="9" fill="#444">${z.label}</text>`;
-        }).join("");
-
-        const monthTicks = MONTH_TICKS.map(
-          ([day, label]) => `<text x="${x(day)}" y="${H - M.bottom + 14}" font-size="9" fill="#666" text-anchor="start">${label}</text>`
-        ).join("");
-
-        const xAxisTitle = `<text x="${M.left + PW / 2}" y="${H - 6}" font-size="10" fill="#444" text-anchor="middle">Tag des Jahres</text>`;
-        const yAxisTitle = `<text x="14" y="${M.top + PH / 2}" font-size="10" fill="#444" text-anchor="middle" transform="rotate(-90 14 ${M.top + PH / 2})">Pflanzenverfügbares Wasser (%nFK)</text>`;
-
-        const title = `${opts.standort} ${baumart.replace(/_/g, " ")} – ${tiefe} cm (%nFK)`;
-
-        const svgHTML = `
-<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${title}">
-  ${grid.join("")}
-  ${thresholdLines}
-  ${bands}
-  ${median}
-  ${aktuellPath}
-  ${heute}
-  ${zoneLabels}
-  ${yTickLabels.join("")}
-  ${monthTicks}
-  ${xAxisTitle}
-  ${yAxisTitle}
-  <rect x="${M.left}" y="${M.top}" width="${PW}" height="${PH}" fill="none" stroke="#ccc" stroke-width="1" />
-  <line class="wh-crosshair" x1="0" y1="${M.top}" x2="0" y2="${H - M.bottom}" stroke="#999" stroke-width="1" stroke-dasharray="2,2" style="display:none" />
-</svg>`;
-
-        containerEl.innerHTML = svgHTML;
-
-        // -- Hover-Tooltip: unified wie im Original (Datum + Median + Aktuell) --
-        const svgEl = containerEl.querySelector("svg");
-        const crosshair = containerEl.querySelector(".wh-crosshair");
-        const tooltip = document.createElement("div");
-        tooltip.className = "wh-tooltip";
-        containerEl.appendChild(tooltip);
-
+        // -- Eine unsichtbare Hover-Trace für den ganzen Zeitraum statt Hover
+        //    auf den (teils unsichtbaren) Band-/Linien-Traces einzeln
+        //    zuzulassen - ein Tooltip pro Tag mit Datum + Median + Aktuell,
+        //    wie im Original. hovermode:'x' unten findet den nächsten Tag
+        //    unabhängig vom y-Abstand zum Cursor. -------------------------
         const qByDay = new Map(qRows.map((r) => [r.tag, r.median]));
         const aByDay = new Map(aRows.filter((r) => r.wert !== null).map((r) => [dayOfYear(r.datum), r.wert]));
-
-        function onMove(evt) {
-          const rect = svgEl.getBoundingClientRect();
-          const scale = rect.width / W;
-          if (!scale) return;
-          const dataX = (evt.clientX - rect.left) / scale;
-          const day = Math.min(365, Math.max(1, Math.round(1 + ((dataX - M.left) / PW) * 364)));
-
-          crosshair.setAttribute("x1", x(day));
-          crosshair.setAttribute("x2", x(day));
-          crosshair.style.display = "block";
-
+        const hoverText = days.map((day) => {
           const med = qByDay.get(day);
           const akt = aByDay.get(day);
-          tooltip.innerHTML =
-            `<b>${formatDayLabel(day)}</b>` +
+          return `<b>${formatDayLabel(day)}</b><br>` +
             (med != null ? `Median: ${med}<br>` : "") +
             (akt != null ? `Aktuell: ${akt}` : "");
-          tooltip.style.display = "block";
+        });
+        traces.push({
+          x: days, y: days.map(() => maxY), mode: "markers",
+          marker: { opacity: 0, size: 24 }, hoverinfo: "text", hovertext: hoverText,
+          showlegend: false,
+        });
 
-          const containerRect = containerEl.getBoundingClientRect();
-          let left = evt.clientX - containerRect.left + 12;
-          let top = evt.clientY - containerRect.top - 10;
-          left = Math.min(left, containerRect.width - 120);
-          tooltip.style.left = left + "px";
-          tooltip.style.top = Math.max(0, top) + "px";
+        // -- Schwellenlinien (fix, farbig) -------------------------------
+        const shapes = THRESHOLDS.filter((t) => t.val <= maxY).map((t) => ({
+          type: "line", xref: "x", x0: days[0], x1: days[days.length - 1],
+          yref: "y", y0: t.val, y1: t.val, line: { color: t.color, width: 1.5 },
+        }));
+
+        // -- Zonen-Beschriftungen rechts: farbiges Kästchen MIT schwarzer
+        //    Beschriftung drin (nicht Kästchen + Text daneben) -------------
+        // Kästchen als echtes Rechteck (shape), Text als eigene Annotation
+        // exakt darüber zentriert. "paper" x=0..1 deckt hier genau die
+        // Plot-Fläche ab (Marge liegt außerhalb), daher die Umrechnung von
+        // Pixel-Offsets über plotAreaWidthPx/-HeightPx.
+        const plotAreaWidthPx  = opts.plotWidth - 50 - 90; // layout.width - margin.l - margin.r
+        const plotAreaHeightPx = opts.chartHeight - 10 - 40; // layout.height - margin.t - margin.b
+        const pxToDataY  = maxY / plotAreaHeightPx;
+        const pxToPaperX = 1 / plotAreaWidthPx;
+
+        const BADGE_W = 74; // px, breit genug für "sehr trocken" bei font-size 9
+        const BADGE_H = 13; // px
+
+        const annotations = [];
+        ZONES.filter((z) => z.y1 <= maxY * 1.2).forEach((z) => {
+          const cy = (z.y0 + z.y1) / 2;
+          const halfH = (BADGE_H / 2) * pxToDataY;
+          shapes.push({
+            type: "rect", xref: "paper", yref: "y",
+            x0: 1 + 6 * pxToPaperX, x1: 1 + (6 + BADGE_W) * pxToPaperX,
+            y0: cy - halfH, y1: cy + halfH,
+            fillcolor: z.color, line: { width: 0 },
+          });
+          annotations.push({
+            xref: "paper", x: 1 + (6 + BADGE_W / 2) * pxToPaperX, xanchor: "center",
+            yref: "y", y: cy, yanchor: "middle",
+            text: z.label, showarrow: false, font: { size: 9, color: "#000" }, align: "center",
+          });
+        });
+
+        // -- "Letztes Update"-Marker: volle Höhe gepunktet + lila Box mit
+        //    Datum des letzten Messwerts (heuteTag ist trotz des Namens nicht
+        //    zwangsläufig der heutige Tag, sondern der jüngste Eintrag in der
+        //    Aktuell-CSV) -----------------------------------------------
+        if (heuteTag !== null) {
+          const label = aRows[aRows.length - 1].datum.split("-").reverse().join(".");
+          const text  = `Letztes Update: ${label}`;
+
+          // Box-Größe aus der tatsächlichen Textlänge ableiten (in Pixel,
+          // dann wie oben in Daten-/Tageseinheiten umgerechnet), statt eines
+          // festen 70-100-Bereichs - sonst passt der rotierte Text bei
+          // "Letztes Update: DD.MM.YYYY" nicht immer vollständig in die Box.
+          // ~5px/Zeichen bei font-size 9 (grobe, aber ausreichend
+          // großzügige Schätzung) + etwas Luft.
+          const pxToDataX = (days[days.length - 1] - days[0]) / plotAreaWidthPx;
+          const boxLenData   = (text.length * 5 + 12) * pxToDataY;  // Länge = Textrichtung (rotiert)
+          const boxThickData = 14 * pxToDataX;                       // Dicke = Zeilenhöhe der Schrift
+          const boxTop    = 100; // wie im Original: oben exakt an der feucht/nass-Trennlinie
+          const boxBottom = Math.max(0, boxTop - boxLenData);
+          const boxX0     = Math.max(days[0], heuteTag - boxThickData);
+
+          shapes.push(
+            { type: "line", xref: "x", x0: heuteTag, x1: heuteTag, yref: "paper", y0: 0, y1: 1, line: { color: "#000", width: 1, dash: "dot" } },
+            { type: "rect", xref: "x", x0: boxX0, x1: heuteTag, yref: "y", y0: boxBottom, y1: boxTop, fillcolor: "#9370DB", opacity: 0.9, line: { width: 0 } }
+          );
+          annotations.push({
+            // xanchor/yanchor:center statt right/middle - bei rotiertem Text
+            // (textangle) dreht Plotly um die Textmitte, ein Rand-Anker hätte
+            // das Label aus der lila Box heraus verschoben.
+            xref: "x", x: (boxX0 + heuteTag) / 2, xanchor: "center",
+            yref: "y", y: (boxBottom + boxTop) / 2, yanchor: "middle",
+            text, textangle: -90,
+            showarrow: false, font: { size: 9, color: "#fff" },
+          });
         }
 
-        function onLeave() {
-          crosshair.style.display = "none";
-          tooltip.style.display = "none";
-        }
+        const layout = {
+          margin: { l: 50, r: 90, t: 10, b: 40 },
+          // Explizit statt Plotlys eigener Größenermittlung überlassen (die
+          // sich auf die Container-Größe zur Renderzeit verlässt) - beide
+          // kommen aus buildTabs()/openStandortPopup() (90% der Karten-
+          // breite/-höhe, Höhe abzüglich Header/Tabs/Legende).
+          width: opts.plotWidth,
+          height: opts.chartHeight,
+          xaxis: {
+            range: [days[0], days[days.length - 1]],
+            tickmode: "array",
+            tickvals: MONTH_TICKS.map((t) => t[0]),
+            ticktext: MONTH_TICKS.map((t) => t[1]),
+            tickfont: { size: 9, color: "#666" },
+            title: { text: "Tag des Jahres", font: { size: 10, color: "#444" } },
+            showgrid: false,
+            showspikes: true, spikemode: "across", spikethickness: 1, spikedash: "dot", spikecolor: "#999", spikesnap: "cursor",
+          },
+          yaxis: {
+            range: [0, maxY], dtick: 20, gridcolor: "#e5e5e5", zeroline: false,
+            tickfont: { size: 9, color: "#666" },
+            title: { text: "Pflanzenverfügbares Wasser (%nFK)", font: { size: 10, color: "#444" } },
+          },
+          shapes: shapes,
+          annotations: annotations,
+          showlegend: false,
+          hovermode: "x",
+          hoverlabel: { bgcolor: "#fff", bordercolor: "#ccc", font: { size: 12, color: "#222" } },
+          plot_bgcolor: "#fff", paper_bgcolor: "#fff",
+        };
 
-        svgEl.addEventListener("mousemove", onMove);
-        svgEl.addEventListener("mouseleave", onLeave);
+        const config = { displayModeBar: false, responsive: true, staticPlot: false };
+
+        // Wie beim alten Hand-SVG: Container als Bild beschriften, statt
+        // Screenreadern Plotlys interne SVG-Struktur roh vorzusetzen.
+        containerEl.setAttribute("role", "img");
+        containerEl.setAttribute("aria-label", `${opts.standort} ${baumart.replace(/_/g, " ")} – ${tiefe} cm (%nFK)`);
+
+        return Plotly.newPlot(containerEl, traces, layout, config);
       }
 
       return { loadStandortData, buildStandortData, getTiefen, renderInto };

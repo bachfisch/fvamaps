@@ -67,8 +67,8 @@ html, body {
 }
 
 /* -------------------------------------------------------------------------
-   Popup-Hülle (fix) – Rahmen für ALLE Kartentypen
-   Der Inhalt (.fva-popup-body) wird pro Karte individuell befüllt.
+   Popup-Hülle (fix) – Rahmen für ALLE Kartentypen, greift automatisch bei
+   JEDEM maplibregl.Popup, unabhängig davon, wie der Inhalt gebaut wurde.
    ------------------------------------------------------------------------- */
 .maplibregl-popup-content {
   padding: 0 !important;
@@ -76,6 +76,69 @@ html, body {
   box-shadow: var(--fva-shadow) !important;
   font-family: var(--fva-font);
   overflow: hidden;
+}
+
+/* Basis-Styling für ganz normale HTML-Tags direkt im Popup - greift auch
+   OHNE jede der fva-popup__*-Klassen unten, z.B. bei simplem
+   `.setHTML("<h3>Titel</h3><p>Text</p>")`. Die fva-popup__*-Klassen
+   bleiben als Opt-in für aufwändiger strukturierte Popups (mehrzeilig,
+   Bilder, Tabs) verfügbar - siehe karte_wrw.html/karte_level2.html. */
+.maplibregl-popup-content h1,
+.maplibregl-popup-content h2,
+.maplibregl-popup-content h3 {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--fva-border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fva-text);
+}
+
+.maplibregl-popup-content p,
+.maplibregl-popup-content dl,
+.maplibregl-popup-content table,
+.maplibregl-popup-content ul,
+.maplibregl-popup-content ol {
+  margin: 8px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fva-text);
+}
+
+.maplibregl-popup-content > img {
+  max-width: calc(100% - 28px);
+  border-radius: 4px;
+  display: block;
+  margin: 8px 14px;
+}
+
+/* Schließen-"X": MapLibres eigener Button zeigt hart einprogrammiert "×"
+   (U+00D7, siehe vendor/maplibre-gl.js) - lässt sich nicht per Option
+   umstellen. Für ein einheitliches "X" wie im EPS-Modal (das kein
+   maplibregl.Popup ist, siehe #modal-close-btn in karte_eps.html) blenden
+   wir den nativen Text aus und setzen per ::after dasselbe Zeichen (✕,
+   U+2715) - reine CSS-Optik, an der Klick-Fläche/Funktion ändert sich
+   nichts. Greift automatisch bei jedem maplibregl.Popup, egal welche
+   Karte ihn öffnet. */
+.maplibregl-popup-close-button {
+  font-size: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Kein graues Hover-Feld wie MapLibres eigenes (siehe vendor/maplibre-gl.css,
+     .maplibregl-popup-close-button:hover) - wie im EPS-Modal reicht ein
+     Farbwechsel des Zeichens selbst (siehe :hover::after unten). */
+  background-color: transparent !important;
+}
+.maplibregl-popup-close-button::after {
+  content: "✕";
+  font-size: 20px;
+  color: var(--fva-text-muted);
+}
+.maplibregl-popup-close-button:hover::after {
+  color: var(--fva-text);
 }
 
 .fva-popup {
@@ -165,9 +228,12 @@ html, body {
   font-size: 12px;
   font-family: var(--fva-font);
   color: var(--fva-text);
-  /* Reset für den <button>-Fall (einklappbare Legende) */
+  /* Legende ist immer einklappbar -> header ist immer ein <button>; das
+     hier nimmt ihm die Browser-Standardoptik wieder weg. */
   border: 0;
   background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
   text-align: left;
   line-height: 1.5;
 }
@@ -176,8 +242,6 @@ html, body {
   outline: 2px solid var(--fva-green);
   outline-offset: -2px;
 }
-
-button.map-legend__header { appearance: none; -webkit-appearance: none; }
 
 .map-legend__chevron {
   transition: transform 0.15s ease;
@@ -216,6 +280,34 @@ button.map-legend__header { appearance: none; -webkit-appearance: none; }
   font-size: 10px;
   color: var(--fva-text-muted);
   line-height: 1.5;
+}
+
+/* -------------------------------------------------------------------------
+   Statische Attribution – ersetzt MapLibres interaktive (i)-Box
+   (attributionControl:false in FVAMap.create()). Rechtlich reicht ein
+   dauerhaft sichtbarer Text; bewusst klein/unauffällig gehalten, da sie
+   sich die Ecke oft mit einem eigenen Control (z.B. Timeline) teilt.
+   Sitzt bündig unten rechts wie vorher die native Box - dafür trägt das
+   Element zusätzlich MapLibres eigene "maplibregl-ctrl-attrib"-Klasse
+   (siehe vendor/maplibre-gl.css), die den 10px-Rand der anderen Controls
+   per margin:0 selbst schon aufhebt. Der einzige Rest-Versatz ist unser
+   eigenes margin:10px auf .maplibregl-ctrl-bottom-right oben - die
+   negativen Werte hier gleichen genau das wieder aus.
+   ------------------------------------------------------------------------- */
+.fva-attribution.maplibregl-ctrl-attrib {
+  margin: 0 -10px -10px 0;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--fva-text-muted);
+  font-family: var(--fva-font);
+}
+
+.fva-attribution a {
+  color: var(--fva-text-muted);
+  text-decoration: underline;
 }
 
 /* -------------------------------------------------------------------------
@@ -264,14 +356,20 @@ button.map-legend__header { appearance: none; -webkit-appearance: none; }
 }
 
 /* -------------------------------------------------------------------------
-   Bild-Lightbox (gemeinsam für alle Karten, siehe initImageLightbox)
+   Bild-Lightbox (gemeinsam für alle Karten, siehe initImageLightbox) - kann
+   aus einem Bild INNERHALB von FVAMap.openModal() geöffnet werden (z.B.
+   karte_wrw.html), muss also über dem Modal liegen. z-index 10001 statt
+   ebenfalls 10000 wie .fva-modal-overlay: bei gleichem z-index würde sonst
+   die DOM-Reihenfolge entscheiden - initImageLightbox() läuft schon beim
+   Kartenstart (Lightbox existiert früh im DOM), das Modal aber erst lazy
+   beim ersten Öffnen, landet also später im DOM und damit fälschlich obendrüber.
    ------------------------------------------------------------------------- */
 .fva-lightbox {
   display: none;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
-  z-index: 10000;
+  z-index: 10001;
   align-items: center;
   justify-content: center;
   cursor: zoom-out;
@@ -284,4 +382,69 @@ button.map-legend__header { appearance: none; -webkit-appearance: none; }
   max-height: 90vh;
   border-radius: 10px;
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* -------------------------------------------------------------------------
+   Zentriertes Modal (gemeinsam für alle Karten, siehe FVAMap.openModal) -
+   für Popup-Inhalte, die zu breit/hoch für ein normales maplibregl.Popup
+   sind (Bilder, Charts). Sitzt fest im Viewport, IMMER mittig, unabhängig
+   vom Kartenausschnitt/der Klickposition - anders als ein map.Popup mit
+   setLngLat(). Optik angelehnt an das bisherige EPS-eigene Modal.
+   ------------------------------------------------------------------------- */
+.fva-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.fva-modal-overlay.is-open { display: flex; }
+
+.fva-modal {
+  position: relative;
+  background: var(--fva-bg);
+  border-radius: var(--fva-radius);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+}
+
+.fva-modal__body {
+  width: 100%;
+  overflow: auto;
+  max-height: 92vh;
+}
+
+/* Gleiche Optik wie der Schließen-Button der maplibregl.Popups (siehe
+   .maplibregl-popup-close-button oben) - kein eigenes CSS-Modul dafür,
+   weil MapLibres Button eine eigene Klasse aus der Vendor-CSS erzwingt und
+   dieser hier ein ganz normaler <button> ohne solche Vorgabe ist. */
+.fva-modal__close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  font-size: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.fva-modal__close::after {
+  content: "✕";
+  font-size: 20px;
+  color: var(--fva-text-muted);
+}
+.fva-modal__close:hover::after {
+  color: var(--fva-text);
 }
