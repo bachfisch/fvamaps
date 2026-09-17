@@ -42,7 +42,6 @@
       { color: "#BEBEBE", label: "Kein Pilotprojekt" },
     ];
 
-    FVAMap.initImageLightbox();
     initMap();
 
     function initMap() {
@@ -51,6 +50,11 @@
         // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
         ariaLabel: "Wasserrückhalt im Wald – Landkreise und Maßnahmenstandorte",
       });
+
+      // Braucht map (hängt die Lightbox in den Karten-Container statt in
+      // document.body, damit sie auch im nativen Fullscreen sichtbar bleibt
+      // - siehe Kommentar über initImageLightbox in basemap.js).
+      FVAMap.initImageLightbox(map);
 
       const tooltip = FVAMap.createHoverTooltip(map);
 
@@ -134,7 +138,7 @@
 
         // -- Klick-Popup nur für Standorte ---------------------------------
         map.on("click", "standorte-punkte", (e) => {
-          openStandortPopup(e.features[0].properties);
+          openStandortPopup(map, e.features[0].properties);
         });
 
         // -- Legende (Standardformat, immer unten rechts) ----------------
@@ -146,7 +150,7 @@
     }
 
     /** Öffnet das Popup für einen Maßnahmenstandort (Hülle + Inhalt). */
-    function openStandortPopup(props) {
+    function openStandortPopup(map, props) {
       const root = document.createElement("div");
       root.className = "fva-popup fva-popup--large";
 
@@ -215,7 +219,7 @@
       // sich wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
       // Repositionieren nach dem Bildladen mehr nötig - das Modal hat keinen
       // Anker, der sich verschieben könnte.
-      FVAMap.openModal(root);
+      FVAMap.openModal(map, root);
     }
   </script>
 </body>

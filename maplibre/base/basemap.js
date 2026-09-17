@@ -371,12 +371,31 @@
   }
 
   // -------------------------------------------------------------------
+  // Fullscreen: FVAMap.create() schaltet den nativen Browser-Fullscreen auf
+  // map.getContainer() (siehe FullscreenControl). Alles, was NICHT
+  // Nachfahre dieses Containers ist - z.B. ein an document.body gehängtes
+  // Overlay - wird während Fullscreen unsichtbar (die Fullscreen-API zeigt
+  // nur den Ast des fullscreenen Elements). initImageLightbox()/openModal()
+  // hängen ihre Overlays deshalb in den Karten-Container statt in body.
+  // Zusätzlich: ein offenes Overlay beim Fullscreen-Wechsel schließen, sonst
+  // bleiben Plotly-Chart-Maße (feste Pixelbreite/-höhe aus der Container-
+  // Größe VOR dem Wechsel) hängen und wirken hinterher verzerrt/zu groß.
+  // -------------------------------------------------------------------
+  function onFullscreenChange(handler) {
+    ["fullscreenchange", "webkitfullscreenchange"].forEach((evt) =>
+      document.addEventListener(evt, handler)
+    );
+  }
+
+  // -------------------------------------------------------------------
   // Bild-Lightbox (Klick auf ein Popup-Bild -> vergrößerte Ansicht)
   // Einmal pro Seite initialisieren; reagiert per Event-Delegation auf
   // JEDES <img class="fva-popup__img" data-full="..."> im Dokument, auch
   // wenn Popups dynamisch nachgeladen werden.
+  // @param {maplibregl.Map} map - Container, in den die Lightbox gehängt
+  //   wird (siehe Fullscreen-Hinweis oben).
   // -------------------------------------------------------------------
-  function initImageLightbox() {
+  function initImageLightbox(map) {
     if (document.getElementById("fva-lightbox")) return; // nur einmal initialisieren
 
     const box = document.createElement("div");
@@ -386,7 +405,7 @@
     box.setAttribute("aria-modal", "true");
     box.setAttribute("aria-label", "Bildvorschau");
     box.innerHTML = '<img alt="" />';
-    document.body.appendChild(box);
+    map.getContainer().appendChild(box);
 
     const img = box.querySelector("img");
     let lastFocus = null;
@@ -419,6 +438,8 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && box.classList.contains("is-open")) close();
     });
+
+    onFullscreenChange(close);
   }
 
   // -------------------------------------------------------------------
@@ -463,7 +484,7 @@
   // nur noch als fertigen Inhalt. Einmal pro Seite initialisiert (wie
   // initImageLightbox oben), Inhalt wird bei jedem open() ausgetauscht.
   // -------------------------------------------------------------------
-  function ensureModal() {
+  function ensureModal(map) {
     let overlay = document.getElementById("fva-modal-overlay");
     if (overlay) return overlay;
 
@@ -475,7 +496,7 @@
       '<button type="button" class="fva-modal__close" aria-label="Schließen"></button>' +
       '<div class="fva-modal__body"></div>' +
       "</div>";
-    document.body.appendChild(overlay);
+    map.getContainer().appendChild(overlay);
 
     function close() {
       overlay.classList.remove("is-open");
@@ -488,6 +509,7 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
     });
+    onFullscreenChange(close);
     overlay._fvaClose = close;
     return overlay;
   }
@@ -497,11 +519,13 @@
    * Aufrufer selbst (üblicherweise die normale .fva-popup-Struktur aus
    * Header + Body, siehe karte_wrw.html/karte_level2.html) - hier wird nur
    * noch die Positionierung/der Hintergrund/das Schließen übernommen.
+   * @param {maplibregl.Map} map - Container, in den das Modal gehängt wird
+   *   (siehe Fullscreen-Hinweis über initImageLightbox oben).
    * @param {HTMLElement} content
    * @returns {{ close: () => void }}
    */
-  function openModal(content) {
-    const overlay = ensureModal();
+  function openModal(map, content) {
+    const overlay = ensureModal(map);
     const body = overlay.querySelector(".fva-modal__body");
     body.innerHTML = "";
     body.appendChild(content);

@@ -28,7 +28,7 @@ curl -L -o plotly-basic.min.js https://cdn.jsdelivr.net/npm/plotly.js-basic-dist
 
 Nach jedem Update: Tabelle oben anpassen, `?v=`-Marker in den `karte_*.html`
 (siehe `../README.md`, Abschnitt „Versionierung“) erhöhen und die vier Karten
-in `../maps/test.html` durchklicken.
+in `../../index.html` durchklicken.
 
 ## Nicht selbst gehostet: die Basemap-Kacheln
 

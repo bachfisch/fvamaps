@@ -17,14 +17,7 @@
         "baumart": "Fichte",
         "hoehe_m": 600,
         "hangneigung_grad": 25,
-        "bodentyp": "Podsol",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Podsol"
       }
     },
     {
@@ -43,14 +36,7 @@
         "baumart": "Fichte",
         "hoehe_m": 511,
         "hangneigung_grad": 8,
-        "bodentyp": "Podsolierte Braunerde bis Parabraunerde",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Podsolierte Braunerde bis Parabraunerde"
       }
     },
     {
@@ -69,14 +55,7 @@
         "baumart": "Fichte",
         "hoehe_m": 816,
         "hangneigung_grad": 22,
-        "bodentyp": "Braunerde",
-        "wasserhaushalt_verfuegbar": true,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde"
       }
     },
     {
@@ -95,14 +74,7 @@
         "baumart": "Fichte_geduengt",
         "hoehe_m": 682,
         "hangneigung_grad": 1,
-        "bodentyp": "Pseudogley-Parabraunerde",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Pseudogley-Parabraunerde"
       }
     },
     {
@@ -121,14 +93,7 @@
         "baumart": "Fichte",
         "hoehe_m": 345,
         "hangneigung_grad": 6,
-        "bodentyp": "Braunerde",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde"
       }
     },
     {
@@ -147,14 +112,7 @@
         "baumart": "Fichte",
         "hoehe_m": 512,
         "hangneigung_grad": 9,
-        "bodentyp": "Braunerde",
-        "wasserhaushalt_verfuegbar": true,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde"
       }
     },
     {
@@ -173,14 +131,7 @@
         "baumart": "Buche",
         "hoehe_m": 390,
         "hangneigung_grad": 11,
-        "bodentyp": "Pseudogley-Braunerde",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#C8E6A0",
-        "fillOpacity": 0.85,
-        "color": "#5B8C3A",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Pseudogley-Braunerde"
       }
     },
     {
@@ -199,14 +150,7 @@
         "baumart": "Bannwald_Buche",
         "hoehe_m": 811,
         "hangneigung_grad": 19,
-        "bodentyp": "Braunerde",
-        "wasserhaushalt_verfuegbar": true,
-        "radius": 7,
-        "fillColor": "#C8E6A0",
-        "fillOpacity": 0.85,
-        "color": "#5B8C3A",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde"
       }
     },
     {
@@ -225,14 +169,7 @@
         "baumart": "Buche",
         "hoehe_m": 696,
         "hangneigung_grad": 3,
-        "bodentyp": "Parabraunerde-Pseudogley",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#C8E6A0",
-        "fillOpacity": 0.85,
-        "color": "#5B8C3A",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Parabraunerde-Pseudogley"
       }
     },
     {
@@ -251,14 +188,7 @@
         "baumart": "Buche",
         "hoehe_m": 492,
         "hangneigung_grad": 3,
-        "bodentyp": "Braunerde-Pseudogley",
-        "wasserhaushalt_verfuegbar": true,
-        "radius": 7,
-        "fillColor": "#C8E6A0",
-        "fillOpacity": 0.85,
-        "color": "#5B8C3A",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde-Pseudogley"
       }
     },
     {
@@ -277,14 +207,7 @@
         "baumart": "Buche",
         "hoehe_m": 327,
         "hangneigung_grad": 12,
-        "bodentyp": "Braunerde-Pseudogley",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#C8E6A0",
-        "fillOpacity": 0.85,
-        "color": "#5B8C3A",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Braunerde-Pseudogley"
       }
     },
     {
@@ -303,14 +226,7 @@
         "baumart": "Fichte_Null",
         "hoehe_m": 650,
         "hangneigung_grad": 0,
-        "bodentyp": "Pseudogley-Parabraunerde",
-        "wasserhaushalt_verfuegbar": false,
-        "radius": 7,
-        "fillColor": "#9FD8C8",
-        "fillOpacity": 0.85,
-        "color": "#2F7A66",
-        "weight": 2,
-        "opacity": 1
+        "bodentyp": "Pseudogley-Parabraunerde"
       }
     }
   ]

@@ -95,10 +95,17 @@
      * Standort). Klick-Popup zeigt Wasserhaushalt (%nFK) als Grafik mit
      * einem Tab pro Bodentiefe - ersetzt die früheren Einzel-Exporte.
      * Geodaten:
-     *   data/level2_standorte.geojson
+     *   data/level2_standorte.geojson - NUR Standort-Metadaten (label,
+     *   popup_name, standort, baumart, hoehe_m, hangneigung_grad, bodentyp).
+     *   Punkt-Styling (Farbe/Radius/...) kommt bewusst NICHT von dort, siehe
+     *   SPECIES_STYLE unten - das ist immer dasselbe für alle Standorte
+     *   einer Baumart, muss also nicht pro Feature in der GeoJSON stehen.
      * Grafikdaten pro Standort (zwei CSVs, wie besprochen):
      *   data/<Standort>_quartal.csv   Referenzverlauf, 1x jährlich neu
      *   data/<Standort>_aktuell.csv   Tageswerte, laufend aktualisiert
+     * Ob es für einen Standort eine Grafik gibt, wird NICHT über ein Flag in
+     * der GeoJSON entschieden, sondern einfach ausprobiert: CSV lädt ->
+     * Grafik, CSV fehlt (404) -> Hinweistext (siehe openStandortPopup).
      * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende steht in
      * LEGEND_ITEMS.
      * -----------------------------------------------------------------
@@ -107,11 +114,21 @@
     const STANDORTE_URL = "./data/level2_standorte.geojson";
     const DATA_DIR = "./data/";
 
+    // Einzige Quelle für die Punkt-/Legenden-Farben je Baumart - baumart in
+    // der GeoJSON ist z.B. auch "Fichte_geduengt" oder "Bannwald_Buche",
+    // daher unten ein Substring-Check ("enthält Buche?") statt exaktem
+    // Vergleich, siehe circle-color/-stroke-color.
+    const SPECIES_STYLE = {
+      Buche:  { fill: "#C8E6A0", stroke: "#5B8C3A" },
+      Fichte: { fill: "#9FD8C8", stroke: "#2F7A66" },
+    };
+    const POINT_RADIUS = 7;
+    const POINT_FILL_OPACITY = 0.85;
+    const POINT_STROKE_WEIGHT = 2;
+    const POINT_STROKE_OPACITY = 1;
+
     const LEGEND_TITLE = "Baumart";
-    const LEGEND_ITEMS = [
-      { color: "#C8E6A0", label: "Buche" },
-      { color: "#9FD8C8", label: "Fichte" },
-    ];
+    const LEGEND_ITEMS = Object.entries(SPECIES_STYLE).map(([label, s]) => ({ color: s.fill, label }));
 
     initMap();
 
@@ -128,7 +145,7 @@
         map.addSource("standorte", { type: "geojson", data: STANDORTE_URL, generateId: true });
 
         // Diagnose: prüft einmalig, ob die geladenen Features das erwartete
-        // Schema haben (label/popup_name/standort/baumart/wasserhaushalt_verfuegbar).
+        // Schema haben (label/popup_name/standort/baumart).
         // Meldet sich laut in der Konsole, statt später still "undefined" zu zeigen.
         map.once("sourcedata", function checkSchema(e) {
           if (e.sourceId !== "standorte" || !map.isSourceLoaded("standorte")) return;
@@ -142,7 +159,7 @@
             return;
           }
           const p = feats[0].properties;
-          const required = ["label", "popup_name", "standort", "baumart", "wasserhaushalt_verfuegbar"];
+          const required = ["label", "popup_name", "standort", "baumart"];
           const missing = required.filter((k) => !(k in p));
           if (missing.length) {
             console.error(
@@ -154,6 +171,11 @@
           }
         });
 
+        // Farben kommen aus SPECIES_STYLE, nicht aus der GeoJSON - "in" prüft
+        // hier auf Teilstring (baumart kann z.B. "Bannwald_Buche" oder
+        // "Fichte_geduengt" sein), Radius/Opazität/Strichstärke sind für
+        // jeden Standort ohnehin gleich (feste Konstanten oben).
+        const isBuche = ["in", "Buche", ["get", "baumart"]];
         map.addLayer({
           id: "standorte-punkte",
           type: "circle",
@@ -161,16 +183,16 @@
           paint: {
             "circle-radius": [
               "case", ["boolean", ["feature-state", "hover"], false],
-              ["+", ["get", "radius"], 4], ["get", "radius"],
+              POINT_RADIUS + 4, POINT_RADIUS,
             ],
-            "circle-color": ["get", "fillColor"],
-            "circle-opacity": ["get", "fillOpacity"],
-            "circle-stroke-color": ["get", "color"],
+            "circle-color": ["case", isBuche, SPECIES_STYLE.Buche.fill, SPECIES_STYLE.Fichte.fill],
+            "circle-opacity": POINT_FILL_OPACITY,
+            "circle-stroke-color": ["case", isBuche, SPECIES_STYLE.Buche.stroke, SPECIES_STYLE.Fichte.stroke],
             "circle-stroke-width": [
               "case", ["boolean", ["feature-state", "hover"], false],
-              ["+", ["get", "weight"], 1.5], ["get", "weight"],
+              POINT_STROKE_WEIGHT + 1.5, POINT_STROKE_WEIGHT,
             ],
-            "circle-stroke-opacity": ["get", "opacity"],
+            "circle-stroke-opacity": POINT_STROKE_OPACITY,
           },
         });
 
@@ -244,18 +266,16 @@
       // wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
       // Repositionieren nach dem Laden/Tab-Wechsel mehr nötig - das Modal hat
       // keinen Anker, der sich verschieben könnte.
-      FVAMap.openModal(root);
+      FVAMap.openModal(map, root);
 
       // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
       // Namen ableiten ("Altensteig Buche" -> "Altensteig").
       const standort = props.standort || displayName.split(" ")[0];
 
-      if (props.wasserhaushalt_verfuegbar === false) {
-        chartWrap.className = "wh-hint";
-        chartWrap.textContent = "Wasserhaushalts-Grafik für diesen Standort folgt in Kürze.";
-        return;
-      }
-
+      // Kein Flag mehr, das vorher pflegen musste, wer welche CSVs schon
+      // hochgeladen hat ("wasserhaushalt_verfuegbar" in der GeoJSON) - wir
+      // versuchen es einfach: CSV lädt -> Grafik, CSV fehlt (404) -> Hinweis
+      // im catch() unten.
       WHChart.loadStandortData(standort, DATA_DIR)
         .then((data) => {
           const tiefen = WHChart.getTiefen(data, props.baumart);

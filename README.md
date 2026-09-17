@@ -8,22 +8,25 @@ eingebunden je Karte per `<iframe>`.
 ## Verzeichnis
 
 ```
+index.html         →  Entwickler-/Testübersicht, bindet alle Karten per <iframe> ein
+                       (Kartenliste inline im MAPS-Array) - auch der Einstiegspunkt
+                       für GitHub Pages (siehe unten)
 maplibre/
   vendor/        Fremdbibliotheken, selbst gehostet (MapLibre, html-to-image, Plotly) – siehe vendor/README.md
   base/          basemap.js + basemap.css  →  DIE gemeinsame Basis, nur hier ändern
   maps/          karte_*.html  →  je Karte eine Datei, nur fachspezifischer Code
     data/        Geodaten (WRW)
-    test.html    →  Entwickler-Übersicht, bindet alle Karten per <iframe> ein (Kartenliste inline im MAPS-Array)
 ```
 
 ## Lokal testen
 
-`fetch()` auf die GeoJSON/JSON-Datendateien funktioniert nicht über `file://`:
+`fetch()` auf die GeoJSON/JSON-Datendateien funktioniert nicht über `file://`.
+Server im Repo-Root starten (nicht in `maplibre/maps/`), weil `index.html` die
+Karten über relative Pfade ab dem Root einbindet (`maplibre/maps/karte_*.html`):
 
 ```sh
-cd maplibre/maps
 python3 -m http.server
-# → http://localhost:8000/test.html
+# → http://localhost:8000/
 ```
 
 ## Konventionen (verbindlich für neue Karten)
@@ -52,7 +55,7 @@ python3 -m http.server
   `["feature-state","hover"]` aus, Quelle mit `generateId: true`).
 
 Neue Karte anlegen: `maps/karte_basemap.html` kopieren und einen Eintrag im
-`MAPS`-Array in `maps/test.html` ergänzen.
+`MAPS`-Array in `index.html` ergänzen.
 
 ## Versionierung / Cache-Bust
 
