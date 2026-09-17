@@ -4,15 +4,25 @@
   <meta charset="utf-8" />
   <title>FVA Karten – Testübersicht</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0; url=maplibre/maps/test.html" />
-  <link rel="canonical" href="maplibre/maps/test.html" />
-  <script>location.replace("maplibre/maps/test.html");</script>
   <style>
-    body { font-family: "Segoe UI", Roboto, Arial, sans-serif; margin: 40px; color: #222; }
-    a { color: #006e60; }
+    html, body {
+      margin: 0;
+      height: 100%;
+    }
+    /*
+     * Bindet maplibre/maps/test.html direkt ein, statt die Kartenliste hier
+     * zu duplizieren. Neue Karte hinzufügen: weiterhin nur im MAPS-Array in
+     * maplibre/maps/test.html ergänzen – wirkt sich automatisch hier aus.
+     */
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
   </style>
 </head>
 <body>
-  <p>Weiterleitung zur <a href="maplibre/maps/test.html">FVA Karten – Testübersicht</a> …</p>
+  <iframe src="maplibre/maps/test.html" title="FVA Karten – Testübersicht" loading="lazy"></iframe>
 </body>
 </html>
