@@ -592,8 +592,8 @@
           const med = qByDay.get(day);
           const akt = aByDay.get(day);
           return `<b>${formatDayLabel(day)}</b><br>` +
-            (med != null ? `Median: ${med}<br>` : "") +
-            (akt != null ? `Aktuell: ${akt}` : "");
+            (med != null ? `<span style="color:#737373">▬</span> Median: ${med}<br>` : "") +
+            (akt != null ? `<span style="color:#D7263D">▬</span> Aktuell: ${akt}` : "");
         });
         traces.push({
           x: days, y: days.map(() => maxY), mode: "markers",
