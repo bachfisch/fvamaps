@@ -134,7 +134,7 @@
   <div id="tab-vergleich" class="tab-panel">
     <h1>Maplibre - Leaflet</h1>
     <p class="hinweis">
-      Zum Vergleich bewusst die jeweilige <strong>Standard-Karte</strong> ohne
+      Zum Vergleich die jeweilige <strong>Standard-Karte</strong> ohne
       FVA-Anpassungen: Leaflet mit den OSM-HOT-Kacheln (Humanitarian
       OpenStreetMap Team) als Basemap, MapLibre GL JS mit den Vektor-Kacheln
       von OpenFreeMap.
@@ -158,7 +158,7 @@
       Alle Karten mit MapLibre GL JS, alle mit demselben Kartenausschnitt
       (unsere Baden-Württemberg-Boundarys, siehe <code>BW_BOUNDS</code> in
       <code>maplibre/base/basemap.js</code> - hier unabhängig davon nochmal
-      hinterlegt, da dieser Tab bewusst ohne FVA-Basemap auskommt) – so lassen
+      hinterlegt, da dieser Tab ohne FVA-Basemap auskommt) – so lassen
       sich Stil und Aktualität der Kacheln direkt nebeneinander vergleichen.
     </p>
 
@@ -194,7 +194,7 @@
       btn.addEventListener("click", () => zeigeTab(btn.dataset.tab));
     });
 
-    /** Baut die beiden Vergleichskarten - bewusst die Standard-Bibliotheken
+    /** Baut die beiden Vergleichskarten - 
      *  ohne FVAMap-Wrapper/Design-Tokens, siehe Hinweistext im Tab. */
     function initVergleich() {
       // Kartenausschnitt: ganz Baden-Württemberg, grob zentriert (dieser Tab
@@ -231,7 +231,6 @@
       };
     }
 
-    // Quellen recherchiert und per curl gegengeprüft (HTTP 200, siehe Chat) -
     // basemap.de/-world-URLs kamen von der FVA (BKG-Dienst, nicht öffentlich
     // in der basemap.de-Doku aufgeführt).
     const TILE_STYLES = [
@@ -261,7 +260,7 @@
      *  Ausschnitt (BW_BOUNDS), damit die Kachel-Stile direkt vergleichbar
      *  sind statt nur "ähnlich zentriert". */
     function initTiles() {
-      // Identisch zu BW_BOUNDS in base/basemap.js - hier bewusst
+      // Identisch zu BW_BOUNDS in base/basemap.js - hier
       // eigenständig hinterlegt statt importiert, siehe Hinweistext im Tab.
       const BW_BOUNDS = [
         [7.45209, 47.48723],

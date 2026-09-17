@@ -24,13 +24,12 @@
      * Geodaten:
      *   data/wrw_landkreise.geojson
      *   data/wrw_standorte.geojson
-     * Beide GeoJSONs enthalten NUR noch echte Daten (Name/Hauptzielsetzung/
-     * Projektgemeinde bzw. Popup-Inhalte) - kein Styling mehr (color/weight/
-     * opacity/fillColor/fillOpacity/radius). Das war ohnehin überwiegend
-     * konstant bzw. 1:1 von hauptzielsetzung abhängig (per Skript geprüft),
-     * muss also nicht pro Feature wiederholt werden - siehe
-     * HAUPTZIELSETZUNG_STYLE unten (Kontur/Standorte sind komplett konstant,
-     * stehen deshalb direkt in den paint-Objekten, keine eigene Tabelle).
+     * Beide GeoJSONs enthalten nur echte Daten (Name/Hauptzielsetzung/
+     * Projektgemeinde bzw. Popup-Inhalte), kein Styling (color/weight/
+     * opacity/fillColor/fillOpacity/radius) - das hängt komplett bzw. 1:1
+     * von hauptzielsetzung ab, siehe HAUPTZIELSETZUNG_STYLE unten
+     * (Kontur/Standorte sind für alle Features gleich, stehen deshalb
+     * direkt in den paint-Objekten, keine eigene Tabelle).
      * Kartenausschnitt (ganz BW) kommt aus der Basemap; die Legende leitet
      * FVAMap.addLegend (styleTable-Option) direkt aus HAUPTZIELSETZUNG_STYLE ab.
      * -----------------------------------------------------------------
@@ -153,12 +152,10 @@
     });
 
     /** Öffnet das Popup für einen Maßnahmenstandort (Inhalt). Titel + Export
-     *  + Schließen kommen jetzt fest von FVAMap.openModal, kein eigener
-     *  Header hier mehr nötig. */
+     *  + Schließen kommen von FVAMap.openModal, kein eigener Header nötig. */
     function openStandortPopup(map, props) {
-      // .fva-popup(--large) + .fva-popup__body auf demselben Element - vorher
-      // war das getrennt (Hülle root außen, body innen), aber root gab es nur
-      // für den jetzt entfallenen eigenen Header-Balken.
+      // .fva-popup(--large) + .fva-popup__body auf demselben Element (kein
+      // eigener Header-Wrapper).
       const body = document.createElement("div");
       body.className = "fva-popup fva-popup--large fva-popup__body";
 
@@ -208,17 +205,16 @@
         popupImg.className = "fva-popup__img";
         popupImg.src = props.popup_img;
         popupImg.setAttribute("data-full", props.popup_img);
-        popupImg.alt = props.popup_name || "";
+        popupImg.alt = props.label || "";
         body.appendChild(popupImg);
       }
 
       // Zentriertes Modal statt maplibregl.Popup + setLngLat() - das Bild
       // kann groß sein, und ein an den Standort verankertes Popup würde je
       // nach Klickposition/Kartenausschnitt irgendwo am Rand aufklappen statt
-      // sich wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
-      // Repositionieren nach dem Bildladen mehr nötig - das Modal hat keinen
-      // Anker, der sich verschieben könnte.
-      FVAMap.openModal(map, body, { title: props.popup_name, exportName: props.popup_name });
+      // sich wie beim EPS-Modal verlässlich mittig zu zeigen. Das Modal hat
+      // keinen Anker, der sich verschieben könnte.
+      FVAMap.openModal(map, body, { title: props.label, exportName: props.label });
     }
   </script>
 </body>

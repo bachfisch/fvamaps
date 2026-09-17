@@ -1,8 +1,8 @@
 /* =========================================================================
    FVA – Gemeinsame Basemap-Styles
    Gilt für ALLE Karten (karte_*.html). Nur hier ändern, nie pro Karte
-   duplizieren. Ungenutzte Regeln (z. B. .map-legend-note ohne passendes
-   Element auf der Seite) haben keinerlei Kosten – siehe Konzept-Dokument.
+   duplizieren. Ungenutzte Regeln (z. B. .map-legend__note ohne passendes
+   Element auf der Seite) haben keinerlei Kosten.
    ========================================================================= */
 
 :root {
@@ -156,8 +156,6 @@ html, body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--fva-text);
-  max-height: 360px;
-  overflow-y: auto;
 }
 
 .fva-popup__body img {
@@ -191,8 +189,8 @@ html, body {
    Legende – Basis für alle Karten
    Wird als echtes MapLibre-Control erzeugt (FVAMap.addLegend,
    map.addControl(legend, 'bottom-right')); die Positionierung übernimmt
-   MapLibre selbst (siehe .maplibregl-ctrl-* oben), daher hier KEIN
-   position:absolute mehr.
+   MapLibre selbst (siehe .maplibregl-ctrl-* oben), daher hier ohne
+   position:absolute.
    ------------------------------------------------------------------------- */
 .map-legend {
   background: rgba(255, 255, 255, 0.96);
@@ -277,12 +275,12 @@ html, body {
    (attributionControl:false in FVAMap.create()). Rechtlich reicht ein
    dauerhaft sichtbarer Text; bewusst klein/unauffällig gehalten, da sie
    sich die Ecke oft mit einem eigenen Control (z.B. Timeline) teilt.
-   Sitzt bündig unten rechts wie vorher die native Box - dafür trägt das
-   Element zusätzlich MapLibres eigene "maplibregl-ctrl-attrib"-Klasse
-   (siehe vendor/maplibre-gl.css), die den 10px-Rand der anderen Controls
-   per margin:0 selbst schon aufhebt. Der einzige Rest-Versatz ist unser
-   eigenes margin:10px auf .maplibregl-ctrl-bottom-right oben - die
-   negativen Werte hier gleichen genau das wieder aus.
+   Sitzt bündig unten rechts - dafür trägt das Element zusätzlich MapLibres
+   eigene "maplibregl-ctrl-attrib"-Klasse (siehe vendor/maplibre-gl.css),
+   die den 10px-Rand der anderen Controls per margin:0 selbst schon aufhebt.
+   Der einzige Rest-Versatz ist unser eigenes margin:10px auf
+   .maplibregl-ctrl-bottom-right oben - die negativen Werte hier gleichen
+   genau das wieder aus.
    ------------------------------------------------------------------------- */
 .fva-attribution.maplibregl-ctrl-attrib {
   margin: 0 -10px -10px 0;
@@ -379,7 +377,7 @@ html, body {
    für Popup-Inhalte, die zu breit/hoch für ein normales maplibregl.Popup
    sind (Bilder, Charts). Sitzt fest im Viewport, IMMER mittig, unabhängig
    vom Kartenausschnitt/der Klickposition - anders als ein map.Popup mit
-   setLngLat(). Optik angelehnt an das bisherige EPS-eigene Modal.
+   setLngLat(). Optik konsistent mit dem EPS-eigenen Modal (karte_eps.html).
    ------------------------------------------------------------------------- */
 .fva-modal-overlay {
   display: none;

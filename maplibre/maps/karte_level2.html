@@ -15,28 +15,20 @@
   -->
   <style>
     /* .fva-popup--large deckelt normale Popups in basemap.css auf max-width:520px -
-       genau richtig für Bild-/Text-Popups, aber hier brauchen wir die volle, per JS
-       berechnete Breite (90% der Kartenbreite) für die Plotly-Grafik. Anders als das
-       alte Hand-SVG (skalierte sich per viewBox automatisch auf die verfügbare Breite
-       runter) rendert Plotly mit einer festen Pixelbreite (layout.width) - ohne diese
-       Aufhebung würde die Grafik am 520px-Deckel des Popup-Rahmens abgeschnitten. */
+       für diese Karte brauchen wir die volle, per JS berechnete Breite (90% der
+       Kartenbreite) für die Plotly-Grafik; ohne diese Aufhebung würde die Grafik
+       am 520px-Deckel des Popup-Rahmens abgeschnitten. */
     .fva-popup--level2.fva-popup--large { max-width: none; }
 
     /* Breite wird pro Popup dynamisch in JS gesetzt (~90% der Kartenbreite);
        das hier ist nur der Fallback, falls JS aus irgendeinem Grund nicht greift.
-       Kein Leerzeichen zwischen den beiden Klassen - beide sitzen mittlerweile
-       auf demselben Element (siehe openStandortPopup, kein eigener Header-
-       Wrapper mehr). max-height/overflow-y aus basemap.css (.fva-popup__body,
-       dort 360px für normale, klein bleibende maplibregl.Popups gedacht) hier
-       aufgehoben - das umschließende .fva-modal übernimmt diesen Job jetzt
-       selbst (max-height:92vh + Scroll). Ohne diese Aufhebung würde die
-       Grafik innerhalb des Modals trotzdem bei 360px abgeschnitten/gescrollt,
-       unabhängig davon, wie hoch chartHeight berechnet wird. */
+       Kein Leerzeichen zwischen den beiden Klassen - beide sitzen auf demselben
+       Element (siehe openStandortPopup, kein eigener Header-Wrapper). Höhe
+       deckelt sich nicht selbst - das umschließende .fva-modal übernimmt das
+       (max-height:92vh + Scroll). */
     .fva-popup--level2.fva-popup__body {
       width: 480px;
       max-width: 90vw;
-      max-height: none;
-      overflow-y: visible;
     }
 
     .wh-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: #555; margin-bottom: 10px; }
@@ -54,7 +46,7 @@
     .wh-tab:hover { color: #2F6B4F; }
     .wh-tab--active { color: #2F6B4F; border-bottom-color: #2F6B4F; font-weight: 600; }
 
-    /* Der Plot selbst (Achsen, Hover, Crosshair) kommt jetzt komplett von
+    /* Der Plot selbst (Achsen, Hover, Crosshair) kommt komplett von
        Plotly.js. min-width statt einer von JS berechneten festen Breite -
        Plotly rendert per layout.autosize:true responsive in die tatsächlich
        verfügbare Breite hinein (siehe WHChart.renderInto), min-width ist nur
@@ -87,7 +79,7 @@
      * -----------------------------------------------------------------
      * Standorte der Level-II-Flächen (Buche/Fichte, mehrere Bodentiefen je
      * Standort). Klick-Popup zeigt Wasserhaushalt (%nFK) als Grafik mit
-     * einem Tab pro Bodentiefe - ersetzt die früheren Einzel-Exporte.
+     * einem Tab pro Bodentiefe.
      * Geodaten:
      *   data/level2_standorte.geojson - NUR Standort-Metadaten (label,
      *   standort, baumart, hoehe_m, hangneigung_grad, bodentyp). "baumart"
@@ -183,29 +175,27 @@
     });
 
     /** Öffnet das Popup für einen Level-II-Standort (Metadaten + Grafik).
-     *  Titel + Export + Schließen kommen jetzt fest von FVAMap.openModal,
-     *  kein eigener Header hier mehr nötig. */
+     *  Titel + Export + Schließen kommen von FVAMap.openModal, kein eigener
+     *  Header nötig. */
     function openStandortPopup(map, props) {
       const displayName =
         props.label || props.name ||
         [props.standort, props.baumart].filter(Boolean).join(" ") || "Standort";
 
-      // Fallback, falls "standort" im GeoJSON fehlt (altes Schema): aus dem
-      // Namen ableiten ("Altensteig Buche" -> "Altensteig").
+      // Fallback, falls "standort" fehlt: aus dem Namen ableiten
+      // ("Altensteig Buche" -> "Altensteig").
       const standort = props.standort || displayName.split(" ")[0];
 
-      // datenreihe (exakter CSV-Spaltenwert, z.B. "Fichte_geduengt") kommt
-      // nicht mehr aus der GeoJSON, sondern aus dem Label abgeleitet -
-      // "Ochsenhausen Fichte geduengt" minus Standort "Ochsenhausen" minus
-      // Leerzeichen->Unterstrich = "Fichte_geduengt". label ist eindeutig
-      // genug dafür, siehe level2_standorte.geojson (kein separates Feld
-      // mehr, das mit dem Label auseinanderlaufen könnte).
+      // datenreihe (exakter CSV-Spaltenwert, z.B. "Fichte_geduengt") wird aus
+      // dem Label abgeleitet, statt in der GeoJSON zu stehen: "Ochsenhausen
+      // Fichte geduengt" minus Standort "Ochsenhausen" minus
+      // Leerzeichen->Unterstrich = "Fichte_geduengt". label ist dafür
+      // eindeutig genug, siehe level2_standorte.geojson.
       const rest = displayName.replace(standort, "").trim().replace(/\s+/g, "_");
       const datenreihe = rest || props.baumart;
 
       // .fva-popup(--large/--level2) + .fva-popup__body auf demselben
-      // Element - vorher war das getrennt (Hülle root außen, body innen),
-      // aber root gab es nur für den jetzt entfallenen eigenen Header-Balken.
+      // Element (kein eigener Header-Wrapper).
       const body = document.createElement("div");
       body.className = "fva-popup fva-popup--large fva-popup--level2 fva-popup__body";
       // 90% der Kartenbreite (5% Rand links/rechts) statt fixer Breite - die
@@ -258,9 +248,8 @@
       // Zentriertes Modal statt maplibregl.Popup + setLngLat() - bei 90%
       // Kartenbreite würde ein am Standort verankertes Popup sonst je nach
       // Klickposition/Kartenausschnitt irgendwo am Rand aufklappen statt sich
-      // wie beim EPS-Modal verlässlich mittig zu zeigen. Kein manuelles
-      // Repositionieren nach dem Laden/Tab-Wechsel mehr nötig - das Modal hat
-      // keinen Anker, der sich verschieben könnte.
+      // wie beim EPS-Modal verlässlich mittig zu zeigen. Das Modal hat keinen
+      // Anker, der sich verschieben könnte.
       FVAMap.openModal(map, body, {
         title: displayName,
         exportName: `Wasserhaushalt_${standort}_${datenreihe}`,
@@ -268,10 +257,7 @@
         afterExport,
       });
 
-      // Kein Flag mehr, das vorher pflegen musste, wer welche CSVs schon
-      // hochgeladen hat ("wasserhaushalt_verfuegbar" in der GeoJSON) - wir
-      // versuchen es einfach: CSV lädt -> Grafik, CSV fehlt (404) -> Hinweis
-      // im catch() unten.
+      // CSV lädt -> Grafik, CSV fehlt (404) -> Hinweis im catch() unten.
       WHChart.loadStandortData(standort, DATA_DIR)
         .then((data) => {
           const tiefen = WHChart.getTiefen(data, datenreihe);
@@ -292,9 +278,9 @@
       container.className = "";
       container.innerHTML = "";
 
-      // Export-Button sitzt jetzt im Modal-Header (FVAMap.openModal) und
-      // fotografiert bei Klick das ganze Popup - kein eigener Button/Zeile
-      // hier mehr nötig, die Tiefen-Tabs stehen einfach für sich.
+      // Export-Button sitzt im Modal-Header (FVAMap.openModal) und
+      // fotografiert bei Klick das ganze Popup - die Tiefen-Tabs stehen
+      // für sich.
       const tabs = document.createElement("div");
       tabs.className = "wh-tabs";
       container.appendChild(tabs);
@@ -367,8 +353,8 @@
   <!--
     Wasserhaushalt-Grafik (Quantilband + Median + aktueller Verlauf) als
     eigenständiges Modul, gezeichnet mit Plotly.js (vendor/plotly-basic.min.js,
-    s.o.) - Achsen, Crosshair und Tooltip kommen jetzt von Plotly selbst statt
-    per Hand gebaut zu werden. Nur von dieser Karte genutzt.
+    s.o.) - Achsen, Crosshair und Tooltip kommen von Plotly selbst.
+    Nur von dieser Karte genutzt.
   -->
   <script>
     const WHChart = (function () {
@@ -460,8 +446,7 @@
         [183, "Jul"], [214, "Aug"], [245, "Sep"], [275, "Okt"], [306, "Nov"], [336, "Dez"],
       ];
 
-      // Fixe hydrologische Schwellen (unabhängig von den Quantilen/vom Standort),
-      // exakt wie im Original.
+      // Fixe hydrologische Schwellen, unabhängig von den Quantilen/vom Standort.
       const THRESHOLDS = [
         { val: 20, color: "#C8642D" },  // sehr trocken/trocken
         { val: 40, color: "#FAC83C" },  // trocken/normal
@@ -513,8 +498,8 @@
           return Promise.resolve();
         }
 
-        // Nur für die Pixel->Papier-Umrechnung der Zonen-Kästchen/Heute-Box
-        // unten - NICHT mehr als layout.width an Plotly durchgereicht (siehe
+        // Nur für die Pixel->Papier-Umrechnung der Zonen-Kästchen/Update-Box
+        // unten - wird nicht als layout.width an Plotly durchgereicht (siehe
         // layout weiter unten: autosize:true statt fester Breite). Auf dem
         // Smartphone ist opts.plotWidth (90% der Kartenbreite) oft nur
         // ~300px; die 500px-Untergrenze hier deckt sich mit der min-width in
@@ -548,18 +533,18 @@
         const medianXY = withGaps(qRows, (r) => r.tag, (r) => r.median);
         traces.push({ x: medianXY.x, y: medianXY.y, mode: "lines", line: { color: "#737373", width: 2 }, connectgaps: false, hoverinfo: "skip", showlegend: false });
 
-        let heuteTag = null;
+        let letztesUpdate = null;
         if (aRows.length) {
           const aktuellXY = withGaps(aRows, (r) => dayOfYear(r.datum), (r) => r.wert);
           traces.push({ x: aktuellXY.x, y: aktuellXY.y, mode: "lines", line: { color: "#D7263D", width: 2 }, connectgaps: false, hoverinfo: "skip", showlegend: false });
-          heuteTag = dayOfYear(aRows[aRows.length - 1].datum);
+          letztesUpdate = dayOfYear(aRows[aRows.length - 1].datum);
         }
 
         // -- Eine unsichtbare Hover-Trace für den ganzen Zeitraum statt Hover
         //    auf den (teils unsichtbaren) Band-/Linien-Traces einzeln
-        //    zuzulassen - ein Tooltip pro Tag mit Datum + Median + Aktuell,
-        //    wie im Original. hovermode:'x' unten findet den nächsten Tag
-        //    unabhängig vom y-Abstand zum Cursor. -------------------------
+        //    zuzulassen - ein Tooltip pro Tag mit Datum + Median + Aktuell.
+        //    hovermode:'x' unten findet den nächsten Tag unabhängig vom
+        //    y-Abstand zum Cursor. -------------------------
         const qByDay = new Map(qRows.map((r) => [r.tag, r.median]));
         const aByDay = new Map(aRows.filter((r) => r.wert !== null).map((r) => [dayOfYear(r.datum), r.wert]));
         const hoverText = days.map((day) => {
@@ -613,10 +598,9 @@
         });
 
         // -- "Letztes Update"-Marker: volle Höhe gepunktet + lila Box mit
-        //    Datum des letzten Messwerts (heuteTag ist trotz des Namens nicht
-        //    zwangsläufig der heutige Tag, sondern der jüngste Eintrag in der
-        //    Aktuell-CSV) -----------------------------------------------
-        if (heuteTag !== null) {
+        //    Datum des letzten Messwerts (jüngster Eintrag in der
+        //    Aktuell-CSV, nicht zwangsläufig der heutige Tag) -------------
+        if (letztesUpdate !== null) {
           const label = aRows[aRows.length - 1].datum.split("-").reverse().join(".");
           const text  = `Letztes Update: ${label}`;
 
@@ -629,19 +613,19 @@
           const pxToDataX = (days[days.length - 1] - days[0]) / plotAreaWidthPx;
           const boxLenData   = (text.length * 5 + 12) * pxToDataY;  // Länge = Textrichtung (rotiert)
           const boxThickData = 14 * pxToDataX;                       // Dicke = Zeilenhöhe der Schrift
-          const boxTop    = 100; // wie im Original: oben exakt an der feucht/nass-Trennlinie
+          const boxTop    = 100; // oben exakt an der feucht/nass-Trennlinie
           const boxBottom = Math.max(0, boxTop - boxLenData);
-          const boxX0     = Math.max(days[0], heuteTag - boxThickData);
+          const boxX0     = Math.max(days[0], letztesUpdate - boxThickData);
 
           shapes.push(
-            { type: "line", xref: "x", x0: heuteTag, x1: heuteTag, yref: "paper", y0: 0, y1: 1, line: { color: "#000", width: 1, dash: "dot" } },
-            { type: "rect", xref: "x", x0: boxX0, x1: heuteTag, yref: "y", y0: boxBottom, y1: boxTop, fillcolor: "#9370DB", opacity: 0.9, line: { width: 0 } }
+            { type: "line", xref: "x", x0: letztesUpdate, x1: letztesUpdate, yref: "paper", y0: 0, y1: 1, line: { color: "#000", width: 1, dash: "dot" } },
+            { type: "rect", xref: "x", x0: boxX0, x1: letztesUpdate, yref: "y", y0: boxBottom, y1: boxTop, fillcolor: "#9370DB", opacity: 0.9, line: { width: 0 } }
           );
           annotations.push({
             // xanchor/yanchor:center statt right/middle - bei rotiertem Text
             // (textangle) dreht Plotly um die Textmitte, ein Rand-Anker hätte
             // das Label aus der lila Box heraus verschoben.
-            xref: "x", x: (boxX0 + heuteTag) / 2, xanchor: "center",
+            xref: "x", x: (boxX0 + letztesUpdate) / 2, xanchor: "center",
             yref: "y", y: (boxBottom + boxTop) / 2, yanchor: "middle",
             text, textangle: -90,
             showarrow: false, font: { size: 9, color: "#fff" },
@@ -650,14 +634,6 @@
 
         const layout = {
           margin: { l: 50, r: 90, t: 10, b: 40 },
-          // autosize:true + kein layout.width: Plotly rendert responsiv in
-          // die tatsächliche Breite von .wh-chart hinein (CSS min-width:500px
-          // dort ist die Untergrenze) und reagiert von selbst auf spätere
-          // Größenänderungen (config.responsive:true unten) - kein manuelles
-          // Ausrechnen/Erzwingen einer festen Pixelbreite mehr nötig. Höhe
-          // bleibt bewusst fest (kommt aus buildTabs()/openStandortPopup(),
-          // 90% der Kartenhöhe abzüglich Header/Tabs/Legende) - autosize
-          // regelt nur die Breite, weil layout.height weiterhin gesetzt ist.
           autosize: true,
           height: opts.chartHeight,
           xaxis: {
@@ -685,8 +661,8 @@
 
         const config = { displayModeBar: false, responsive: true, staticPlot: false };
 
-        // Wie beim alten Hand-SVG: Container als Bild beschriften, statt
-        // Screenreadern Plotlys interne SVG-Struktur roh vorzusetzen.
+        // Container als Bild beschriften, statt Screenreadern Plotlys
+        // interne SVG-Struktur roh vorzusetzen.
         containerEl.setAttribute("role", "img");
         containerEl.setAttribute("aria-label", `${opts.standort} ${baumart.replace(/_/g, " ")} – ${tiefe} cm (%nFK)`);
 

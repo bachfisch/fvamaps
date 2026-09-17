@@ -10,7 +10,6 @@
       "properties": {
         "name": "Deißlingen",
         "label": "Deißlingen",
-        "popup_name": "Deißlingen",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -34,7 +33,6 @@
       "properties": {
         "name": "Herbolzheim",
         "label": "Herbolzheim",
-        "popup_name": "Herbolzheim",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -58,7 +56,6 @@
       "properties": {
         "name": "Schwäbisch_Gmünd",
         "label": "Schwäbisch Gmünd",
-        "popup_name": "Schwäbisch Gmünd",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -90,7 +87,6 @@
       "properties": {
         "name": "Baden_Baden_1",
         "label": "Baden-Baden",
-        "popup_name": "Baden-Baden",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -110,7 +106,6 @@
       "properties": {
         "name": "Kappel_Grafenhausen",
         "label": "Kappel-Grafenhausen",
-        "popup_name": "Kappel-Grafenhausen",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -138,7 +133,6 @@
       "properties": {
         "name": "Ummendorf",
         "label": "Ummendorf",
-        "popup_name": "Ummendorf",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -158,7 +152,6 @@
       "properties": {
         "name": "Mannheim_1",
         "label": "Mannheim",
-        "popup_name": "Mannheim",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -178,7 +171,6 @@
       "properties": {
         "name": "Eggingen",
         "label": "Eggingen",
-        "popup_name": "Eggingen",
         "popup_hz": "Bestandesvitalität",
         "popup_massnahmen": [
           [
@@ -206,7 +198,6 @@
       "properties": {
         "name": "Ispringen",
         "label": "Ispringen",
-        "popup_name": "Ispringen",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -226,7 +217,6 @@
       "properties": {
         "name": "Oberried",
         "label": "Oberried",
-        "popup_name": "Oberried",
         "popup_hz": "Erosionsschutz",
         "popup_massnahmen": [
           [
@@ -258,7 +248,6 @@
       "properties": {
         "name": "Graben_Neudorf",
         "label": "Graben-Neudorf",
-        "popup_name": "Graben-Neudorf",
         "popup_hz": "Bestandesvitalität",
         "popup_massnahmen": [
           [
@@ -282,7 +271,6 @@
       "properties": {
         "name": "Rottenburg_am_Neckar",
         "label": "Rottenburg am Neckar",
-        "popup_name": "Rottenburg am Neckar",
         "popup_hz": "Erosionsschutz",
         "popup_massnahmen": [
           [
@@ -310,7 +298,6 @@
       "properties": {
         "name": "Albstadt",
         "label": "Albstadt",
-        "popup_name": "Albstadt",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -334,7 +321,6 @@
       "properties": {
         "name": "Löchgau",
         "label": "Löchgau",
-        "popup_name": "Löchgau",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -358,7 +344,6 @@
       "properties": {
         "name": "Freiburg_im_Breisgau",
         "label": "Freiburg im Breisgau",
-        "popup_name": "Freiburg im Breisgau",
         "popup_hz": "Grundwasserneubildung",
         "popup_massnahmen": [
           [
@@ -378,7 +363,6 @@
       "properties": {
         "name": "Pforzheim_1",
         "label": "Pforzheim",
-        "popup_name": "Pforzheim",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -398,7 +382,6 @@
       "properties": {
         "name": "Immendingen",
         "label": "Immendingen",
-        "popup_name": "Immendingen",
         "popup_hz": "Erosionsschutz",
         "popup_massnahmen": [
           [
@@ -422,7 +405,6 @@
       "properties": {
         "name": "Mühlingen",
         "label": "Mühlingen",
-        "popup_name": "Mühlingen",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -442,7 +424,6 @@
       "properties": {
         "name": "Iffezheim",
         "label": "Iffezheim",
-        "popup_name": "Iffezheim",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -466,7 +447,6 @@
       "properties": {
         "name": "Pfullingen",
         "label": "Pfullingen",
-        "popup_name": "Pfullingen",
         "popup_hz": "Bestandesvitalität",
         "popup_massnahmen": [
           [
@@ -494,7 +474,6 @@
       "properties": {
         "name": "Schelklingen",
         "label": "Schelklingen",
-        "popup_name": "Schelklingen",
         "popup_hz": "Erosionsschutz",
         "popup_massnahmen": [
           [
@@ -522,7 +501,6 @@
       "properties": {
         "name": "Markdorf",
         "label": "Markdorf",
-        "popup_name": "Markdorf",
         "popup_hz": "Hochwasserschutz",
         "popup_massnahmen": [
           [
@@ -546,7 +524,6 @@
       "properties": {
         "name": "Eppingen",
         "label": "Eppingen",
-        "popup_name": "Eppingen",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -566,7 +543,6 @@
       "properties": {
         "name": "Weilheim_an_der_Teck",
         "label": "Weilheim an der Teck",
-        "popup_name": "Weilheim an der Teck",
         "popup_hz": "Erosionsschutz",
         "popup_massnahmen": [
           [
@@ -598,7 +574,6 @@
       "properties": {
         "name": "Karlsruhe_1",
         "label": "Karlsruhe",
-        "popup_name": "Karlsruhe",
         "popup_hz": "Bestandesvitalität",
         "popup_massnahmen": [
           [
@@ -626,7 +601,6 @@
       "properties": {
         "name": "Villingen_Schwenningen",
         "label": "Villingen-Schwenningen",
-        "popup_name": "Villingen-Schwenningen",
         "popup_hz": "Ökologie/Feuchthabitate",
         "popup_massnahmen": [
           [
@@ -646,7 +620,6 @@
       "properties": {
         "name": "Kleines_Wiesental",
         "label": "Kleines Wiesental",
-        "popup_name": "Kleines Wiesental",
         "popup_hz": "Grundwasserneubildung",
         "popup_massnahmen": [
           [

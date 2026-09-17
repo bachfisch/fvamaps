@@ -50,11 +50,9 @@
 
   // Standard-Attributionstext, wenn eine Karte keinen eigenen angibt.
   // Volltext von https://tiles.openfreemap.org/planet (TileJSON-Feld
-  // "attribution") übernommen - das ist exakt das, was MapLibres native
-  // (i)-Box vorher angezeigt hat, als attributionControl noch nicht auf
-  // false stand. Als FVAMap.DEFAULT_ATTRIBUTION exportiert, damit einzelne
-  // Karten zusätzliche Quellen anhängen können, ohne den Pflichttext neu
-  // abschreiben zu müssen:
+  // "attribution") übernommen. Als FVAMap.DEFAULT_ATTRIBUTION exportiert,
+  // damit einzelne Karten zusätzliche Quellen anhängen können, ohne den
+  // Pflichttext neu abschreiben zu müssen:
   //   FVAMap.create({ ..., attribution: FVAMap.DEFAULT_ATTRIBUTION + " · Daten: XY" })
   const DEFAULT_ATTRIBUTION =
     '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ' +
@@ -91,7 +89,7 @@
    * Erstellt eine MapLibre-Karte mit den gemeinsamen Grundeinstellungen.
    * Fullscreen, gesperrte Rotation, Style-Fallback und die statische
    * Attribution gelten IMMER (siehe Konvention oben) und sind bewusst
-   * keine Optionen mehr.
+   * keine Optionen.
    * @param {Object} options
    * @param {string} [options.container="map"]
    * @param {[number,number][]} [options.bounds] – Standard: ganz Baden-Württemberg (BW_BOUNDS); i.d.R. NICHT überschreiben
@@ -179,8 +177,8 @@
       /* ignore */
     }
 
-    // Gilt jetzt fest für JEDE Karte - keine Optionen mehr, die es pro
-    // Karte abschalten könnten.
+    // Gilt fest für JEDE Karte - keine Optionen, die es pro Karte
+    // abschalten könnten.
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
@@ -197,8 +195,8 @@
    *  MapLibre-(i)-Box (siehe attributionControl:false oben). Bewusst KEIN
    *  "app-ctrl" (das gäbe den üblichen 10px-Rand wie Legende/Nav) - stattdessen
    *  MapLibres eigene "maplibregl-ctrl-attrib"-Klasse (siehe
-   *  vendor/maplibre-gl.css), damit die Box wie vorher bei der nativen
-   *  Attribution bündig unten rechts sitzt, statt vom Kartenrand abzurücken. */
+   *  vendor/maplibre-gl.css), damit die Box bündig unten rechts sitzt statt
+   *  vom Kartenrand abzurücken. */
   function createAttributionControl(html) {
     let el;
     return {
@@ -303,7 +301,7 @@
    * `Object.entries(tabelle).map(([label,s]) => ({color:s[key], label}))`
    * nochmal selbst schreibt.
    *
-   * Immer einklappbar (keine Option mehr, siehe Konvention oben). Auf
+   * Immer einklappbar (keine Option, siehe Konvention oben). Auf
    * kleinen Bildschirmen (<=600px) startet sie automatisch eingeklappt,
    * damit man dort nicht nur Legende statt Karte sieht; sonst offen.
    *
@@ -446,6 +444,8 @@
   // Zusätzlich: ein offenes Overlay beim Fullscreen-Wechsel schließen, sonst
   // bleiben Plotly-Chart-Maße (feste Pixelbreite/-höhe aus der Container-
   // Größe VOR dem Wechsel) hängen und wirken hinterher verzerrt/zu groß.
+  // Als FVAMap.onFullscreenChange exportiert, weil karte_eps.html dasselbe
+  // für sein eigenes Modal braucht, siehe dort.
   // -------------------------------------------------------------------
   function onFullscreenChange(handler) {
     ["fullscreenchange", "webkitfullscreenchange"].forEach((evt) =>
@@ -635,9 +635,9 @@
 
   /**
    * Öffnet ein zentriertes Modal mit content als Body-Inhalt. Header (Titel +
-   * Export + Schließen) baut FVAMap selbst - der Aufrufer liefert nur noch
-   * das, was inhaltlich reinsoll (üblicherweise ein .fva-popup__body, siehe
-   * karte_wrw.html/karte_level2.html), keinen eigenen Header mehr.
+   * Export + Schließen) baut FVAMap selbst - der Aufrufer liefert nur den
+   * Inhalt (üblicherweise ein .fva-popup__body, siehe
+   * karte_wrw.html/karte_level2.html), keinen eigenen Header.
    * @param {maplibregl.Map} map - Container, in den das Modal gehängt wird
    *   (siehe Fullscreen-Hinweis über initImageLightbox oben).
    * @param {HTMLElement} content
@@ -682,6 +682,7 @@
     hoverExpr,
     addLegend,
     enableHoverState,
+    onFullscreenChange,
     initImageLightbox,
     openModal,
     createHoverTooltip,

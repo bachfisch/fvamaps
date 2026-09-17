@@ -337,7 +337,7 @@
     to   { transform: rotate(360deg); }
   }
 
-  /* width:100%/overflow-x:auto kommen jetzt aus der geteilten .fva-scroll-x
+  /* width:100%/overflow-x:auto kommen aus der geteilten .fva-scroll-x
      (siehe base/basemap.css) - #gantt-wrap trägt diese Klasse im Markup. */
   #gantt-wrap svg {
     display: block;
@@ -728,10 +728,9 @@ function rebuildTimeline(dates) {
 
 // Karten-Init über die gemeinsame Basemap (Style, Navigation, Fullscreen,
 // Kartenausschnitt, statische Attribution).
-// DWD-Quelle wird hier an die Standard-Attribution angehängt, weil die
-// native (i)-Box (die früher die "attribution"-Property einzelner
-// Sources unten in showLayer() eingesammelt hat) jetzt aus ist - ohne
-// diesen Zusatz würde der DWD-Hinweis nirgends mehr auftauchen.
+// DWD-Quelle wird hier an die Standard-Attribution angehängt - die native
+// (i)-Box ist aus (siehe attributionControl:false in FVAMap.create()), ohne
+// diesen Zusatz würde der DWD-Hinweis nirgends auftauchen.
 const map = FVAMap.create({
   container: 'map',
   // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
@@ -739,6 +738,18 @@ const map = FVAMap.create({
   attribution: FVAMap.DEFAULT_ATTRIBUTION +
     ' · Kartendaten: <a href="https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html" target="_blank" rel="noopener">DWD PHENTHAUproc</a>'
 });
+
+// #modal-overlay/#gantt-tooltip stehen als statisches Markup direkt in
+// <body> - Geschwister von #map, nicht Nachfahren. Die native Fullscreen-API
+// zeigt aber nur den Ast des fullscreenen Elements (siehe Kommentar über
+// onFullscreenChange in basemap.js), deshalb hier in den Karten-Container
+// verschieben - sonst wäre das Grafik-/Tabellen-Popup im Fullscreen
+// unsichtbar, sobald man auf die Karte klickt. Zusätzlich beim Fullscreen-
+// Wechsel schließen, sonst bleiben die festen Pixelmaße des Gantt-Charts
+// (von der Container-Größe vor dem Wechsel) hängen.
+map.getContainer().appendChild(document.getElementById('modal-overlay'));
+map.getContainer().appendChild(document.getElementById('gantt-tooltip'));
+FVAMap.onFullscreenChange(closeModal);
 
 
 // ============================================================
@@ -787,9 +798,9 @@ function showLayer(layerKey, timelineIndex) {
   // Add new layer/source at opacity 0, reveal only once tiles are loaded.
   // MapLibre sources/layers need unique ids, so each date+layer combo gets one.
   const newId = `wms-layer-${wmsLayerCounter++}`;
-  // Kein "attribution" mehr hier: die native Attribution-Box, die das
-  // früher eingesammelt hätte, ist aus (siehe FVAMap.create()-Aufruf
-  // oben). Der DWD-Hinweis steht jetzt fest in der statischen Attribution.
+  // Ohne "attribution" hier: die native Attribution-Box ist aus (siehe
+  // FVAMap.create()-Aufruf oben), der DWD-Hinweis steht fest in der
+  // statischen Attribution.
   map.addSource(newId, {
     type:     'raster',
     tiles:    [buildWmsTileUrl(config, isoDate)],
@@ -833,7 +844,7 @@ function showLayer(layerKey, timelineIndex) {
       'Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarquelle sind ganzjährig möglich.'
     : undefined;
   // FVAMap.addLegend erzwingt die gemeinsame Position (unten rechts) und
-  // ist jetzt immer einklappbar - "collapsible" gibt's nicht mehr als Option.
+  // ist immer einklappbar - beides keine Optionen.
   activeLegend = FVAMap.addLegend(map, {
     title: layerKey,
     items: Object.values(config.legend).map(s => ({ color: s.color, label: s.label })),

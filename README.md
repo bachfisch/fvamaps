@@ -15,7 +15,7 @@ maplibre/
   vendor/        Fremdbibliotheken, selbst gehostet (MapLibre, html-to-image, Plotly) – siehe vendor/README.md
   base/          basemap.js + basemap.css  →  DIE gemeinsame Basis, nur hier ändern
   maps/          karte_*.html  →  je Karte eine Datei, nur fachspezifischer Code
-    data/        Geodaten (WRW)
+    data/        Geodaten + CSVs (WRW, Level II)
 ```
 
 ## Lokal testen
@@ -47,9 +47,10 @@ python3 -m http.server
   und Klicks fallen durch das Control auf die Karte (Symptom: Klick auf ein
   Overlay öffnet ein Popup/Modal). Zusätzlich `FVAMap.stopMapPropagation(el)`.
 - **Farben kommen aus den Design-Tokens.** Kanonisch in `base/basemap.css`
-  (`:root { --fva-* }`, Werte aus dem Website-Theme), im JS über `FVAMap.THEME`
-  (wird aus den CSS-Variablen gelesen). Keine Hex-Werte in den Karten
-  hartkodieren; „FVA-Grün“ ist `--fva-green` / `#006e60` (Website-`--primary`).
+  (`:root { --fva-* }`, Werte aus dem Website-Theme). Kein JS-Äquivalent -
+  eigene Grafiken/Controls lesen die Werte direkt per `var(--fva-green)` im
+  CSS. Keine Hex-Werte in den Karten hartkodieren; „FVA-Grün“ ist
+  `--fva-green` / `#006e60` (Website-`--primary`).
 - **Hover-Hervorhebung**: `FVAMap.enableHoverState(map, layerId, sourceId)` setzt
   `feature-state { hover }` + Zeiger-Cursor (die paint-Ausdrücke werten
   `["feature-state","hover"]` aus, Quelle mit `generateId: true`).
@@ -62,25 +63,28 @@ Neue Karte anlegen: `maps/karte_basemap.html` kopieren und einen Eintrag im
 
 Die EPS-Karte (DWD PHENTHAUproc) ist bewusst als **komplexe Sonderkarte**
 geführt: eigenes Modal, eigene Timeline/Layer-Controls, eigener Gantt-Renderer,
-PNG-Export. Sie nutzt `FVAMap.create`, `FVAMap.addLegend`,
-`FVAMap.stopMapPropagation` und die Design-Tokens (FVA-Grün), bringt aber viel
-eigenes CSS mit (u. a. `#modal`, `.spinner`, `#gantt-tooltip`,
-`body { background:#1a1a1a }`).
-Wenn eine zweite Karte ein Modal / einen PNG-Export braucht, sollten diese
-Teile in `base/` gehoben werden.
+eigener PNG-Export. Sie nutzt `FVAMap.create`, `FVAMap.addLegend`,
+`FVAMap.stopMapPropagation`, `FVAMap.onFullscreenChange` und die Design-Tokens
+(FVA-Grün), bringt aber viel eigenes CSS mit (u. a. `#modal`, `.spinner`,
+`#gantt-tooltip`, `body { background:#1a1a1a }`) und nutzt bewusst NICHT
+`FVAMap.openModal` (das `karte_wrw.html`/`karte_level2.html` verwenden) - ihr
+Modal-Header hat mit den Grafik-/Tabelle-Tabs eine andere Struktur, für die
+sich das generische Modal nicht eignet.
 
 ## Offene Punkte
 
 - **Basemap-Kacheln** kommen zur Laufzeit von `tiles.openfreemap.org`
-  (`DEFAULT_STYLE` in `base/basemap.js`). Einzige Fremd-Abhängigkeit im
-  Normalbetrieb: Single Point of Failure, keine sichtbare Attribution, und der
-  Besucher-IP geht an Dritte (DSGVO-Abwägung). Optionen: Style + Kacheln selbst
-  hosten, oder dokumentierter Fallback + sichtbare OSM/OpenMapTiles-Attribution.
+  (`PRIMARY_STYLE` in `base/basemap.js`, Fallback auf rohe OSM-Kacheln bei
+  Nichterreichbarkeit, sichtbare Attribution über `DEFAULT_ATTRIBUTION`).
+  Einzige verbleibende Fremd-Abhängigkeit im Normalbetrieb: die Besucher-IP
+  geht an Dritte (DSGVO-Abwägung) - offene Option wäre, Style + Kacheln selbst
+  zu hosten.
 - **XSS**: Die Popup-Renderer und `FVAMap.addLegend({ html })` schreiben teils
   rohes HTML aus den Datendateien (feature-`properties`). Solange die
   GeoJSON/JSON von der FVA erzeugt werden, unkritisch – wird eine Quelle je
-  CMS-/nutzereditierbar, muss escaped werden. Die `items`-Variante von
-  `addLegend` (Farbe + Text, s. `karte_wrw.html`) ist der sichere Standard.
+  CMS-/nutzereditierbar, muss escaped werden. Die `items`/`styleTable`-Variante
+  von `addLegend` (Farbe + Text, keine rohen HTML-Strings) ist der sichere
+  Standard.
 - **Barrierefreiheit** (BITV 2.0): Karten-Container hat `role`/`aria-label`,
   die einklappbare Legende ist ein fokussierbarer `<button>`, die Bild-Lightbox
   schließt mit `Esc` und stellt den Fokus zurück. Offen: Tastatur-Bedienung der
