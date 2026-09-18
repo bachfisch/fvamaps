@@ -466,7 +466,16 @@ html, body {
   color: var(--fva-text);
 }
 
+/* flex:1 + min-height:0 (Standard-Flexbox-Kniff): füllt die von
+   FVAMap.openModal per opts.heightPercent gesetzte Modal-Höhe tatsächlich
+   aus (sonst bliebe .fva-modal__body auf seine eigene Inhaltsgröße
+   begrenzt) und erlaubt overflow:auto trotzdem, unter diese Inhaltsgröße
+   zu schrumpfen. Ohne heightPercent (Modal ohne explizite Höhe) ändert das
+   nichts - dann gibt es innerhalb von .fva-modal keinen Rest-Platz zum
+   Verteilen. */
 .fva-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 

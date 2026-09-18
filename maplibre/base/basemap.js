@@ -637,7 +637,12 @@
    * Öffnet ein zentriertes Modal mit content als Body-Inhalt. Header (Titel +
    * Export + Schließen) baut FVAMap selbst - der Aufrufer liefert nur den
    * Inhalt (üblicherweise ein .fva-popup__body, siehe
-   * karte_wrw.html/karte_level2.html), keinen eigenen Header.
+   * karte_wrw.html/karte_level2.html), keinen eigenen Header. Auch die
+   * Größe des Modals (widthPercent/heightPercent) ist Sache dieser Funktion,
+   * nicht des Aufrufers - eine karte_*.html setzt selbst keine Breite/Höhe
+   * auf ihren content, siehe karte_level2.html (braucht ein großes Modal für
+   * die Wasserhaushalts-Grafik, misst danach per content.parentElement die
+   * tatsächlich zugeteilte Größe für die eigene Grafik-Berechnung).
    * @param {maplibregl.Map} map - Container, in den das Modal gehängt wird
    *   (siehe Fullscreen-Hinweis über initImageLightbox oben).
    * @param {HTMLElement} content
@@ -645,6 +650,11 @@
    * @param {string} [opts.title] - links im Header, weggelassen wenn leer
    * @param {string} [opts.exportName] - Dateiname (ohne .png) für den
    *   PNG-Export, Standard "Export"
+   * @param {number} [opts.widthPercent] - Modal-Breite als Anteil der
+   *   Kartenbreite (z.B. 0.9 für 90%); ohne Angabe richtet sich die Breite
+   *   nach dem Inhalt (bis max-width:96vw, siehe basemap.css)
+   * @param {number} [opts.heightPercent] - wie widthPercent, für die Höhe
+   *   (bis max-height:92vh)
    * @param {() => (void|Promise<void>)} [opts.beforeExport] - läuft direkt vor
    *   der Aufnahme, z.B. um einen scrollbaren Inhalt (.fva-scroll-x) auf
    *   die sichtbare Breite zu schrumpfen
@@ -656,12 +666,16 @@
   function openModal(map, content, opts) {
     opts = opts || {};
     const overlay = ensureModal(map);
+    const modal = overlay.querySelector(".fva-modal");
     const title = overlay.querySelector(".fva-modal__title");
     title.textContent = opts.title || "";
     title.hidden = !opts.title;
     overlay._fvaExportName = opts.exportName || opts.title || "Export";
     overlay._fvaBeforeExport = opts.beforeExport || null;
     overlay._fvaAfterExport = opts.afterExport || null;
+    const mapEl = map.getContainer();
+    modal.style.width = opts.widthPercent ? Math.round(mapEl.clientWidth * opts.widthPercent) + "px" : "";
+    modal.style.height = opts.heightPercent ? Math.round(mapEl.clientHeight * opts.heightPercent) + "px" : "";
     const body = overlay.querySelector(".fva-modal__body");
     body.innerHTML = "";
     body.appendChild(content);
