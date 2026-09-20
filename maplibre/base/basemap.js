@@ -26,27 +26,13 @@
 (function (global) {
   "use strict";
 
-  const PRIMARY_STYLE = "https://tiles.openfreemap.org/styles/positron";
+  const PRIMARY_STYLE = "https://tiles.openfreemap.org/styles/bright";
 
   // Kommt nur zum Einsatz, wenn PRIMARY_STYLE nicht ladbar ist (Dienst down
-  // o.ä.). Baut die Karte direkt aus rohen Kacheln, unabhängig von einem
-  // zweiten style.json-Dienst.
-  const FALLBACK_STYLE = {
-    version: 8,
-    sources: {
-      "osm-fallback": {
-        type: "raster",
-        tiles: [
-          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        ],
-        tileSize: 256,
-        attribution: "© OpenStreetMap-Mitwirkende",
-      },
-    },
-    layers: [{ id: "osm-fallback-layer", type: "raster", source: "osm-fallback" }],
-  };
+  // o.ä.). Unsere eigene, lokal liegende Basemap (BKG smarttiles_de/wld) statt
+  // rohem OSM-Raster, damit auch im Fallback-Fall eine vektorbasierte,
+  // FVA-eigene Karte erscheint statt eines reinen Kachel-Notbehelfs.
+  const FALLBACK_STYLE = "../base/basemap-world.json";
 
   // Standard-Attributionstext, wenn eine Karte keinen eigenen angibt.
   // Volltext von https://tiles.openfreemap.org/planet (TileJSON-Feld

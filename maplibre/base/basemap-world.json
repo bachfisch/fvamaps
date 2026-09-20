@@ -27,7 +27,18 @@
     },
     "smarttiles_wld": {
       "type": "vector",
-      "url": "https://sgx.geodatenzentrum.de/gdz_basemapworld_vektor/tiles/v1/bm_web_wld_3857/bm_web_wld_3857.json"
+      "tiles": [
+        "https://sgx.geodatenzentrum.de/gdz_basemapworld_vektor/tiles/v1/bm_web_wld_3857/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 0,
+      "maxzoom": 14,
+      "bounds": [
+        -180,
+        -89,
+        180,
+        85.05114
+      ],
+      "attribution": "basemap.world_odbl"
     }
   },
   "layers": [
