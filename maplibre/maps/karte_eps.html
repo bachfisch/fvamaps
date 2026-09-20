@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <title>DWD PHENTHAUproc – Eichenprozessionsspinner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- Gemeinsame FVA-Basemap -->
 <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
 <link rel="stylesheet" href="../base/basemap.css" />
 <script src="../vendor/maplibre-gl.js"></script>
 <script src="../base/basemap.js"></script>
-<!-- PNG-Export der Popup-Grafik/-Tabelle. html-to-image 1.11.13, MIT-Lizenz,
-     siehe vendor/README.md. -->
+<!-- PNG-Export der Popup-Grafik/-Tabelle. html-to-image 1.11.13, MIT-Lizenz, siehe vendor/README.md. -->
 <script src="../vendor/html-to-image.js"></script>
 
 <style>
+  /* Nur das, was wirklich EPS-eigen ist (Timeline-Slider-Skin, Gantt-/
+     Tabellen-Geometrie) – Popup-Hülle, Tabs, Spinner, Scroll-Wrapper und
+     Tooltip-Optik kommen aus base/basemap.css wie bei jeder anderen Karte. */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
@@ -23,513 +25,141 @@
     background: #1a1a1a;
   }
 
-  /* ============================================================
-     MAP
-  ============================================================ */
-
-  #map {
-    height: 100vh;
-    width: 100%;
-    cursor: crosshair;
-  }
-  /* MapLibre sets its own cursor states on the canvas (grab, grabbing, ...);
-     force the crosshair click-to-query cursor to win regardless of drag state. */
-  #map .maplibregl-canvas {
-    cursor: crosshair !important;
-  }
-
-  /* ── Layer Selection Control (top right) ── */
-  .layer-selection-control {
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: 8px;
-    padding: 12px 14px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-    font-size: 12px;
-    max-width: 220px;
-  }
+  /* ── Layer-Auswahl (oben rechts); Box-Optik von .fva-panel (basemap.css) ── */
+  .layer-selection-control { padding: 12px 14px; max-width: 220px; }
   .layer-selection-control label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 0;
-    cursor: pointer;
-    font-size: 12px;
-    color: #333;
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 0; cursor: pointer; font-size: 12px; color: #333;
   }
 
-  /* ── Timeline Slider Control (bottom left) ── */
+  /* ── Timeline (unten links); Box-Optik von .fva-panel (basemap.css) ── */
   .timeline-slider-control {
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: 8px;
-    padding: 7px 9px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 232px;
+    padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 232px;
   }
-
-  /* top row: buttons + date */
-  .tl-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
+  .tl-controls { display: flex; align-items: center; gap: 4px; }
   .tl-btn {
-    background: var(--fva-green);
-    border: none;
-    color: #fff;
-    border-radius: 5px;
-    width: 22px;
-    height: 22px;
-    cursor: pointer;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    padding: 0;
+    background: var(--fva-green); border: none; color: #fff; border-radius: 5px;
+    width: 22px; height: 22px; cursor: pointer; font-size: 11px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0;
   }
   .tl-btn:hover { background: var(--fva-green-dark); }
   .tl-btn:disabled { background: #ccc; cursor: default; }
-  #date-display {
-    font-size: 11px;
-    color: #444;
-    font-weight: 600;
-    flex: 1;
-    text-align: center;
-  }
+  #date-display { font-size: 11px; color: #444; font-weight: 600; flex: 1; text-align: center; }
 
-  /* slider row */
-  .tl-track-wrap {
-    position: relative;
-    height: 24px;
-    display: flex;
-    align-items: center;
-  }
-  /* year labels sit above the thumb */
-  .tl-year-labels {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 12px;
-    pointer-events: none;
-  }
-  .tl-year-label {
-    position: absolute;
-    transform: translateX(-50%);
-    font-size: 9px;
-    font-weight: 600;
-    color: #888;
-    white-space: nowrap;
-  }
-  /* year dividers on the track */
-  .tl-year-divider {
-    position: absolute;
-    top: 12px;
-    width: 1px;
-    height: 12px;
-    background: #bbb;
-    pointer-events: none;
-  }
+  .tl-track-wrap { position: relative; height: 24px; display: flex; align-items: center; }
+  .tl-year-labels { position: absolute; top: 0; left: 0; right: 0; height: 12px; pointer-events: none; }
+  .tl-year-label { position: absolute; transform: translateX(-50%); font-size: 9px; font-weight: 600; color: #888; white-space: nowrap; }
+  .tl-year-divider { position: absolute; top: 12px; width: 1px; height: 12px; background: #bbb; pointer-events: none; }
   #timeline-slider {
-    position: absolute;
-    top: 12px;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: 12px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    cursor: pointer;
-    margin: 0;
+    position: absolute; top: 12px; left: 0; right: 0; width: 100%; height: 12px;
+    -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; margin: 0;
   }
-  .tl-track {
-    position: absolute;
-    top: 12px;
-    left: 0;
-    right: 0;
-    height: 6px;
-    margin-top: 3px;
-    border-radius: 3px;
-    background: #ddd;
-    pointer-events: none;
-  }
+  .tl-track { position: absolute; top: 12px; left: 0; right: 0; height: 6px; margin-top: 3px; border-radius: 3px; background: #ddd; pointer-events: none; }
   #timeline-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--fva-green);
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px var(--fva-green);
-    margin-top: -4px;
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--fva-green); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--fva-green); margin-top: -4px;
   }
   #timeline-slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--fva-green);
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px var(--fva-green);
+    width: 14px; height: 14px; border-radius: 50%; background: var(--fva-green);
+    border: 2px solid #fff; box-shadow: 0 0 0 1px var(--fva-green);
   }
   #timeline-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; }
   #timeline-slider::-moz-range-track { height: 6px; border-radius: 3px; background: transparent; }
 
-  :fullscreen #map,
-  :-webkit-full-screen #map { height: 100vh; }
+  /* ── Popup-Inhalt: Panel-Titel (Grafik-/Tabellen-Tab) ── */
+  .panel-title { margin-bottom: 12px; text-align: center; }
+  .panel-title h2 { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .panel-title .panel-location { font-size: 12px; font-weight: 600; color: #444; min-height: 16px; margin-bottom: 1px; }
+  .panel-title .panel-coords { font-size: 11px; color: #888; }
 
-  /* ============================================================
-     MODAL / POPUP
-  ============================================================ */
+  /* position:relative macht #chart-area zum Anker für #chart-loading-
+     overlay (position:absolute; inset:0, siehe .fva-spinner-overlay in
+     basemap.css) - ohne das würde der Spinner sich am nächsten
+     positionierten Vorfahren ausrichten (.fva-modal, position:relative)
+     und über den ganzen Popup-Rahmen inkl. Header reichen statt nur über
+     den Grafik-/Tabellen-Bereich. KEIN Padding hier (siehe .eps-tab-panel
+     unten, warum). */
+  #chart-area { position: relative; }
 
-  #modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(2px);
-  }
-  #modal-overlay.open { display: flex; }
+  /* Tab-Inhalt umschalten (Grafik/Tabelle) – .fva-tab/.fva-tab--active für
+     die Tab-Buttons selbst kommen aus basemap.css, das hier ist nur das
+     Ein-/Ausblenden des zugehörigen Panels.
+     Innenabstand zum Popup-Rand sitzt bewusst HIER (nicht am umschließenden
+     #chart-area) - FVAMap.popup.open exportiert für diese Karte per
+     opts.exportTarget wahlweise NUR #gantt-panel oder NUR #table-panel
+     (siehe openEpsPopup), nicht #chart-area. Padding am Elternelement
+     würde beim Export also fehlen (der Export fotografiert exakt die
+     Box des Zielelements, nichts von außerhalb). .fva-modal__body selbst
+     ist ebenfalls bewusst ohne Padding (siehe basemap.css) - andere Karten
+     nutzen dafür ihr eigenes Popup-Inhaltselement per .fva-popup__body,
+     das hier ist dessen Entsprechung. Gleicher Wert wie .fva-popup__body,
+     für einheitliche Optik über alle Popups hinweg. */
+  .eps-tab-panel { display: none; padding: 12px 14px; }
+  .eps-tab-panel.is-active { display: block; }
 
-  #modal {
-    background: #fff;
-    border-radius: 12px;
-    width: min(900px, 96vw);
-    max-height: 92vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-  }
+  #gantt-wrap svg { display: block; width: 100%; }
 
-  #modal-header {
-    padding: 10px 20px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 0;
-  }
-
-  /* Tabs live in the header, left side */
-  #modal-header .modal-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: none;
-    margin-bottom: 0;
-    flex: 1;
-  }
-  #modal-header .modal-tab {
-    padding: 8px 18px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    border: none;
-    background: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;  /* align with header border */
-    transition: color 0.15s, border-color 0.15s;
-  }
-  #modal-header .modal-tab:hover { color: #444; }
-  #modal-header .modal-tab.active {
-    color: var(--fva-green);
-    border-bottom-color: var(--fva-green);
-  }
-
-  #modal-header-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-  #year-select {
-    font-size: 12px;
-    font-family: inherit;
-    padding: 3px 8px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background: #fff;
-    color: #555;
-    cursor: pointer;
-  }
-  #year-select:hover { border-color: #aaa; }
-  #year-select:focus { outline: none; border-color: var(--fva-green); }
-  #modal-close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #999;
-    line-height: 1;
-    padding: 0 0 0 12px;
-    flex-shrink: 0;
-  }
-  #modal-close-btn:hover { color: #333; }
-
-  /* Panel title (Entwicklung des EPS YYYY + coords) */
-  .panel-title {
-    margin-bottom: 12px;
-    text-align: center;
-  }
-  .panel-title h2 {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1a1a1a;
-    margin-bottom: 2px;
-  }
-  .panel-title .panel-location {
-    font-size: 12px;
-    font-weight: 600;
-    color: #444;
-    min-height: 16px;
-    margin-bottom: 1px;
-  }
-  .panel-title .panel-coords {
-    font-size: 11px;
-    color: #888;
-  }
-
-  .modal-tab-panel { display: none; }
-  .modal-tab-panel.active { display: block; }
-
-  #modal-body {
-    padding: 16px 20px 20px;
-    overflow-y: auto;
-    flex: 1;
-  }
-
-  /* ── Gantt chart area ── */
-  #chart-area {
-    display: none;
-    position: relative;  /* anchor for the overlay spinner */
-  }
-
-  /* ── Loading spinner overlay (sits on top of the skeleton chart) ── */
-  #chart-loading-overlay {
-    display: none;
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.75);
-    z-index: 10;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-  }
-  #chart-loading-overlay.visible { display: flex; }
-
-  .spinner {
-    width: 34px;
-    height: 34px;
-    border: 3px solid #e6e6e6;
-    border-top: 3px solid var(--fva-green);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-
-  /* width:100%/overflow-x:auto kommen aus der geteilten .fva-scroll-x
-     (siehe base/basemap.css) - #gantt-wrap trägt diese Klasse im Markup. */
-  #gantt-wrap svg {
-    display: block;
-    width: 100%;
-  }
-
-  /* ── Gantt legend below chart ── */
   .gantt-legend {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 4px 12px;
-    margin-top: 12px;
-    font-size: 11px;
-    color: #444;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px 12px; margin-top: 12px; font-size: 11px; color: #444;
   }
-  .gantt-legend .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .gantt-legend .legend-swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    flex-shrink: 0;
-  }
-  .legend-note {
-    grid-column: 1 / -1;
-    margin-top: 6px;
-    font-size: 10.5px;
-    color: #666;
-    line-height: 1.5;
-  }
+  .gantt-legend .legend-item { display: flex; align-items: center; gap: 6px; }
+  .gantt-legend .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.15); flex-shrink: 0; }
+  .legend-note { grid-column: 1 / -1; margin-top: 6px; font-size: 10.5px; color: #666; line-height: 1.5; }
 
-  /* ── Data table ── */
-  #table-panel {
-    position: relative;
-  }
-  #print-btn {
-    background: none;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    padding: 3px 9px;
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    color: #555;
-    height: 100%;
-    box-sizing: border-box;
-  }
-  #print-btn:hover { background: #f5f5f5; }
-
-  #eps-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11.5px;
-    clear: both;
-  }
-  #eps-table th {
-    background: var(--fva-green);
-    color: #fff;
-    padding: 7px 10px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 11px;
-    vertical-align: top;
-  }
-  #eps-table td {
-    padding: 6px 10px;
-    border: 1px solid #ddd;
-    vertical-align: top;
-    color: #333;
-    font-size: 11px;
-    line-height: 1.4;
-  }
-  #eps-table td.col-date {
-    white-space: nowrap;
-    font-weight: 600;
-    min-width: 80px;
-  }
-  #eps-table .cell-empty {
-    color: #aaa;
-    font-style: italic;
-    font-weight: normal;
-  }
+  /* ── Datentabelle ── */
+  #eps-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  #eps-table th { background: var(--fva-green); color: #fff; padding: 7px 10px; text-align: left; font-weight: 600; font-size: 11px; vertical-align: top; }
+  #eps-table td { padding: 6px 10px; border: 1px solid #ddd; vertical-align: top; color: #333; font-size: 11px; line-height: 1.4; }
+  #eps-table td.col-date { white-space: nowrap; font-weight: 600; min-width: 80px; }
+  #eps-table .cell-empty { color: #aaa; font-style: italic; font-weight: normal; }
   #eps-table .cell-forecast { color: #888; }
-  #eps-table-note {
-    margin-top: 10px;
-    font-size: 10.5px;
-    color: #555;
-    line-height: 1.5;
-  }
+  #eps-table-note { margin-top: 10px; font-size: 10.5px; color: #555; line-height: 1.5; }
 
-  /* ============================================================
-     GANTT TOOLTIP
-  ============================================================ */
-
+  /* Gantt-Tooltip: übernimmt Hintergrund/Rahmen/Schatten von .fva-tooltip
+     (basemap.css), folgt aber dem Mauszeiger statt einem Kartenpunkt -
+     eigene Position (fixed statt absolute, kein Anker-Transform) und muss
+     über dem Popup liegen (z-index über .fva-modal-overlay). */
   #gantt-tooltip {
     position: fixed;
-    background: rgba(255, 255, 255, 0.95);
-    color: #000;
-    padding: 7px 11px;
-    border-radius: 7px;
-    font-size: 11px;
+    transform: none;
+    z-index: 10002;
     pointer-events: none;
-    display: none;
-    z-index: 20000;
     line-height: 1.7;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 </style>
 </head>
 <body>
 
-<div id="map"></div>
-
-<!-- ── Modal ── -->
-<div id="modal-overlay">
-  <div id="modal">
-    <div id="modal-header">
-      <!-- Tabs: left -->
-      <div class="modal-tabs">
-        <button class="modal-tab active" data-tab="gantt-panel">Grafik</button>
-        <button class="modal-tab"        data-tab="table-panel">Tabelle</button>
-      </div>
-      <!-- Year + print + close: right -->
-      <div id="modal-header-right">
-        <select id="year-select"></select>
-        <button id="print-btn" onclick="exportPng()">Export</button>
-        <button id="modal-close-btn">✕</button>
-      </div>
-    </div>
-    <div id="modal-body">
-      <div id="chart-area">
-        <div id="chart-loading-overlay"><div class="spinner"></div></div>
-
-        <!-- Grafik panel -->
-        <div class="modal-tab-panel active" id="gantt-panel">
-          <div class="panel-title">
-            <h2 id="panel-title-text">Entwicklung des Eichenprozessionsspinners</h2>
-            <div class="panel-location" id="gantt-location"></div>
-            <div class="panel-coords" id="modal-coords">–</div>
-          </div>
-          <div id="gantt-wrap" class="fva-scroll-x"></div>
-          <div class="gantt-legend" id="gantt-legend"></div>
-        </div>
-
-        <!-- Tabelle panel -->
-        <div class="modal-tab-panel" id="table-panel">
-          <div class="panel-title">
-            <h2 id="table-title-text">Entwicklung des Eichenprozessionsspinners</h2>
-            <div class="panel-location" id="table-location"></div>
-            <div class="panel-coords" id="table-coords">–</div>
-          </div>
-          <table id="eps-table">
-            <thead>
-              <tr>
-                <th style="width:22%">Phänologisches Ereignis</th>
-                <th style="width:10%">Datum</th>
-                <th style="width:42%">Informationen und Gefährdung</th>
-                <th style="width:26%">Regulierungsmöglichkeiten</th>
-              </tr>
-            </thead>
-            <tbody id="eps-table-body">
-              <!-- filled by fillTableData() -->
-            </tbody>
-          </table>
-          <p id="eps-table-note">* Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarbelastung sind ganzjährig möglich.</p>
-        </div>
-
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="gantt-tooltip"></div>
+<div id="map" class="fva-map"></div>
 
 <script>
 
-// ── TEST DATE OVERRIDE (set to null to use real today) ──
-const TEST_DATE = null //'2025-06-02';
+/**
+ * EPS – Eichenprozessionsspinner (DWD PHENTHAUproc)
+ * -----------------------------------------------------------------------
+ * Komplexe Sonderkarte (siehe README.md, "Bekannte Abweichung:
+ * karte_eps.html"): WMS-Rasterlayer (Entwicklungsstadien/
+ * Regulierungsmöglichkeiten) mit Zeitschieberegler, Klick-Popup mit
+ * Gantt-Grafik + Datentabelle (eigener SVG-Renderer, keine Chart-
+ * Bibliothek), Koordinatentransformation nach Gauß-Krüger Zone 3 für die
+ * WMS-GetFeatureInfo-Abfragen. Nutzt trotzdem FVAMap.init/addLegend/
+ * popup.open wie jede andere Karte – Timeline- und Layer-Auswahl-Controls
+ * sind reine Sonderfälle dieser Karte, kein Bestandteil der Basemap.
+ * -----------------------------------------------------------------------
+ */
 
+// ── TEST DATE OVERRIDE (auf ein Datum setzen zum Testen, sonst null) ──
+const TEST_DATE = null; // '2025-06-02';
 function getToday() {
   return TEST_DATE || new Date().toISOString().split('T')[0];
 }
 
+// ============================================================
+// 1. Filepaths / Konfiguration
+// ============================================================
 
-// ============================================================
-// SHARED LEGENDS
-// ============================================================
+const WMS_BASE_URL = "https://cdc.dwd.de/geoserver/CDC-PHENO/wms?";
 
 const LEGENDS = {
   stages: {
@@ -553,13 +183,6 @@ const LEGENDS = {
 
 // Gantt rows rendered top-to-bottom in this order
 const STAGE_RENDER_ORDER = [8, 7, 6, 5, 4, 3, 2, 1, 0];
-
-
-// ============================================================
-// WMS DEFINITIONS
-// ============================================================
-
-const WMS_BASE_URL = "https://cdc.dwd.de/geoserver/CDC-PHENO/wms?";
 
 // Tile layers shown on the map
 const WMS_LAYER_CONFIGS = {
@@ -598,10 +221,84 @@ const WMS_CHART_SERIES = {
   }
 };
 
+// Full row definitions matching the PDF, in top-to-bottom order.
+// stageId: matches LEGENDS.stages key (null = no server data for this row)
+// regFixed: fixed regulation value (0-3), nicht aus Server-Daten abgeleitet
+const TABLE_ROWS = [
+  { key: "knospenschwellen", label: "Knospenschwellen der Stieleiche", stageId: null,
+    info: "Fraß potenziell erstmals möglich", regFixed: 0, stageColor: "#AAAAAA" },
+  { key: "blattentfaltung", label: "Blattentfaltung der Stieleiche", stageId: null,
+    info: "Blattgröße ca. 2,5 cm Durchmesser", regFixed: 1, stageColor: "#AAAAAA" },
+  { key: "l1schlupf", label: "1. Larvenstadium (Schlupf)", stageId: 1,
+    info: "Keine Gesundheitsgefahr durch frische Brennhaare,\nMortalität in Hungerphase bis Knospenschwellen",
+    regFixed: 0, stageColor: null },
+  { key: "frassbeginn", label: "1. Larvenstadium (Fraßbeginn)", stageId: null,
+    info: "Entspricht Zeitpunkt des Knospenschwellens bzw. Schlupfs, falls dieser später eintritt als Knospenschwellen",
+    regFixed: 0, stageColor: LEGENDS.stages[1].color },
+  { key: "l2", label: "2. Larvenstadium", stageId: 2,
+    info: "Keine Gesundheitsgefahr durch frische Brennhaare", regFixed: 1, stageColor: null },
+  { key: "l3", label: "3. Larvenstadium", stageId: 3,
+    info: "Beginn Brennhaarbildung, beginnende Gesundheitsgefahr", regFixed: 1, stageColor: null },
+  { key: "l4", label: "4. Larvenstadium", stageId: 4,
+    info: "Zunahme Brennhaarbildung, deutliche Gesundheitsgefahr", regFixed: 0, stageColor: null },
+  { key: "l5", label: "5. Larvenstadium", stageId: 5,
+    info: "Weitere Zunahme Brennhaarbildung, hohe Gesundheitsgefahr", regFixed: 0, stageColor: null },
+  { key: "l6", label: "6. Larvenstadium", stageId: 6,
+    info: "Höchste Brennhaarmenge und Gesundheitsgefahr", regFixed: 0, stageColor: null },
+  { key: "puppe", label: "Puppenstadium", stageId: 7,
+    info: "Immobiles Stadium", regFixed: 3, stageColor: null },
+  { key: "falter", label: "Schlupf der Falter (Adultstadium)", stageId: 8,
+    info: "50 % der Falter geschlüpft", regFixed: 0, stageColor: null },
+  { key: "eistadium", label: "Eistadium", stageId: 0,
+    info: "Überwinterungsstadium", regFixed: 0, stageColor: null }
+];
+
+// Regulation label display text (short form matching PDF)
+const REG_DISPLAY = {
+  0: "Keine *",
+  1: "Präventive Maßnahmen",
+  2: "Präventiv nicht mehr zielführend",
+  3: "Mechanische Maßnahmen"
+};
 
 // ============================================================
-// TIMELINE: fetched from WMS GetCapabilities
+// 2. Legende
 // ============================================================
+// Kommt dynamisch aus WMS_LAYER_CONFIGS[key].legend, je nach per Radio
+// gewähltem Layer – FVAMap.addLegend wird deshalb nicht hier, sondern in
+// showLayer() unten bei jedem Layer-/Zeitwechsel neu aufgerufen.
+
+// ============================================================
+// 3. Karte initialisieren (+ EPS-eigene Map-Controls: Timeline, Layer-Auswahl)
+// ============================================================
+
+// cursor:"crosshair" - Klick-zum-Abfragen-Karte statt Feature-Hover.
+// DWD-Quelle wird an die Standard-Attribution angehängt - die native
+// (i)-Box ist aus (siehe FVAMap.init()), ohne diesen Zusatz würde der
+// DWD-Hinweis nirgends auftauchen.
+const map = FVAMap.init({
+  container: "map",
+  ariaLabel: "Eichenprozessionsspinner – Entwicklungsstadien und Regulierung (DWD PHENTHAUproc)",
+  attribution: FVAMap.DEFAULT_ATTRIBUTION +
+    ' · Kartendaten: <a href="https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html" target="_blank" rel="noopener">DWD PHENTHAUproc</a>',
+  cursor: "crosshair",
+});
+
+// -- Timeline: Termine per WMS GetCapabilities, mit Fallback -------------
+
+function buildTimelineFallback() {
+  const dates = [];
+  const today = new Date(getToday());
+  for (let offset = -7; offset <= 4; offset++) {
+    const day = new Date(today);
+    day.setDate(today.getDate() + offset);
+    dates.push(day.toISOString().split('T')[0] + "T00:00:00.000Z");
+  }
+  return dates;
+}
+
+let TIMELINE_DATES       = buildTimelineFallback();
+let TIMELINE_TODAY_INDEX = 7;
 
 async function fetchAvailableDates() {
   const layerName = WMS_LAYER_CONFIGS["Entwicklungsstadien"].layerName;
@@ -630,26 +327,20 @@ async function fetchAvailableDates() {
     }
 
     const raw = timeDim.textContent.trim();
-    console.log('[Timeline] Raw time dimension:', raw.slice(0, 200));
 
     // Format 1: comma-separated list of ISO dates
-    // e.g. "2024-01-01T00:00:00Z,2024-01-02T00:00:00Z,..."
     if (raw.includes(',')) {
-      const dates = raw.split(',').map(d => d.trim()).filter(Boolean);
-      console.log('[Timeline] Parsed', dates.length, 'dates from list');
-      return dates;
+      return raw.split(',').map(d => d.trim()).filter(Boolean);
     }
 
     // Format 2: period range "start/end/resolution"
-    // e.g. "2024-01-01T00:00:00Z/2025-12-31T00:00:00Z/P1D"
     if (raw.includes('/')) {
       const parts = raw.split('/');
       const start = new Date(parts[0].trim());
       const end   = new Date(parts[1].trim());
       const res   = parts[2]?.trim() || 'P1D';
-      // Parse resolution — only handle P1D (daily) and P1M (monthly) for now
       const stepMs = res === 'P1M'
-        ? null  // handled specially below
+        ? null
         : (parseInt(res.replace(/[^0-9]/g, '')) || 1) * 24 * 60 * 60 * 1000;
 
       const dates = [];
@@ -666,12 +357,10 @@ async function fetchAvailableDates() {
           d.setTime(d.getTime() + stepMs);
         }
       }
-      console.log('[Timeline] Expanded period to', dates.length, 'dates (step:', res, ')');
       return dates.length ? dates : null;
     }
 
     // Format 3: single date
-    console.log('[Timeline] Single date found');
     return [raw];
 
   } catch (e) {
@@ -680,26 +369,12 @@ async function fetchAvailableDates() {
   }
 }
 
-function buildTimelineFallback() {
-  const dates = [];
-  const today = new Date(getToday());
-  for (let offset = -7; offset <= 4; offset++) {
-    const day = new Date(today);
-    day.setDate(today.getDate() + offset);
-    dates.push(day.toISOString().split('T')[0] + "T00:00:00.000Z");
-  }
-  return dates;
-}
-
-let TIMELINE_DATES       = buildTimelineFallback();
-let TIMELINE_TODAY_INDEX = 7;
-
 // Returns dates filtered to the previous year + current year
 function filterToRecentYears(dates, n = 1) {
   const today     = getToday();
   const thisYear  = new Date(today).getFullYear();
-  const firstYear = thisYear - n;                     // e.g. 2026 - 1 = 2025
-  const cutoff    = `${firstYear}-01-01`;              // keep from Jan 1 of that year
+  const firstYear = thisYear - n;
+  const cutoff    = `${firstYear}-01-01`;
   return dates.filter(d => d.slice(0, 10) >= cutoff);
 }
 
@@ -721,40 +396,7 @@ function rebuildTimeline(dates) {
   showLayer(selectedLayerKey, todayIdx);
 }
 
-
-// ============================================================
-// MAP SETUP
-// ============================================================
-
-// Karten-Init über die gemeinsame Basemap (Style, Navigation, Fullscreen,
-// Kartenausschnitt, statische Attribution).
-// DWD-Quelle wird hier an die Standard-Attribution angehängt - die native
-// (i)-Box ist aus (siehe attributionControl:false in FVAMap.create()), ohne
-// diesen Zusatz würde der DWD-Hinweis nirgends auftauchen.
-const map = FVAMap.create({
-  container: 'map',
-  // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
-  ariaLabel: 'Eichenprozessionsspinner – Entwicklungsstadien und Regulierung (DWD PHENTHAUproc)',
-  attribution: FVAMap.DEFAULT_ATTRIBUTION +
-    ' · Kartendaten: <a href="https://www.dwd.de/DE/fachnutzer/landwirtschaft/appl/eichenprozessionsspinner_view/_node.html" target="_blank" rel="noopener">DWD PHENTHAUproc</a>'
-});
-
-// #modal-overlay/#gantt-tooltip stehen als statisches Markup direkt in
-// <body> - Geschwister von #map, nicht Nachfahren. Die native Fullscreen-API
-// zeigt aber nur den Ast des fullscreenen Elements (siehe Kommentar über
-// onFullscreenChange in basemap.js), deshalb hier in den Karten-Container
-// verschieben - sonst wäre das Grafik-/Tabellen-Popup im Fullscreen
-// unsichtbar, sobald man auf die Karte klickt. Zusätzlich beim Fullscreen-
-// Wechsel schließen, sonst bleiben die festen Pixelmaße des Gantt-Charts
-// (von der Container-Größe vor dem Wechsel) hängen.
-map.getContainer().appendChild(document.getElementById('modal-overlay'));
-map.getContainer().appendChild(document.getElementById('gantt-tooltip'));
-FVAMap.onFullscreenChange(closeModal);
-
-
-// ============================================================
-// WMS TILE LAYER FACTORY  (used by the map)
-// ============================================================
+// -- WMS-Kacheln (Layer auf der Karte) -------------------------------------
 
 // Builds a WMS GetMap tile URL template. MapLibre understands the special
 // "{bbox-epsg-3857}" token in raster source `tiles` URLs and fills it in
@@ -777,14 +419,6 @@ function buildWmsTileUrl(config, isoDateString) {
   return `${WMS_BASE_URL}${params.toString()}&BBOX={bbox-epsg-3857}`;
 }
 
-
-// Legende: FVAMap.addLegend (siehe showLayer() unten).
-
-
-// ============================================================
-// ACTIVE LAYER STATE  — crossfade, no flicker
-// ============================================================
-
 let activeLayerId    = null;
 let activeLegend      = null;
 let selectedLayerKey  = "Entwicklungsstadien";
@@ -798,9 +432,6 @@ function showLayer(layerKey, timelineIndex) {
   // Add new layer/source at opacity 0, reveal only once tiles are loaded.
   // MapLibre sources/layers need unique ids, so each date+layer combo gets one.
   const newId = `wms-layer-${wmsLayerCounter++}`;
-  // Ohne "attribution" hier: die native Attribution-Box ist aus (siehe
-  // FVAMap.create()-Aufruf oben), der DWD-Hinweis steht fest in der
-  // statischen Attribution.
   map.addSource(newId, {
     type:     'raster',
     tiles:    [buildWmsTileUrl(config, isoDate)],
@@ -843,8 +474,6 @@ function showLayer(layerKey, timelineIndex) {
     ? 'Präventiv bedeutet hier eine Behandlung vor Ausbildung größerer Brennhaar-Mengen.<br>' +
       'Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarquelle sind ganzjährig möglich.'
     : undefined;
-  // FVAMap.addLegend erzwingt die gemeinsame Position (unten rechts) und
-  // ist immer einklappbar - beides keine Optionen.
   activeLegend = FVAMap.addLegend(map, {
     title: layerKey,
     items: Object.values(config.legend).map(s => ({ color: s.color, label: s.label })),
@@ -854,16 +483,14 @@ function showLayer(layerKey, timelineIndex) {
   document.getElementById('date-display').textContent = formatDateGerman(isoDate.split('T')[0]);
 }
 
-
-
-// ============================================================
+// -- Timeline-Slider-Control (unten links) ---------------------------------
 
 const timelineSliderControl = {
   onAdd() {
     const container = document.createElement('div');
     // maplibregl-ctrl: stellt pointer-events:auto wieder her – sonst fallen
     // Klicks/Drags durch das Control auf die Karte (öffnet das Klick-Popup).
-    container.className = 'maplibregl-ctrl timeline-slider-control app-ctrl';
+    container.className = 'maplibregl-ctrl fva-panel app-ctrl timeline-slider-control';
     container.innerHTML = `
       <div class="tl-controls">
         <button class="tl-btn" id="tl-prev"  title="Einen Tag zurück">⏴</button>
@@ -900,7 +527,6 @@ function buildYearMarkers() {
   labelsEl.innerHTML = '';
 
   const total = TIMELINE_DATES.length;
-  // Group consecutive indices by year
   const years = {};
   TIMELINE_DATES.forEach((iso, i) => {
     const y = iso.slice(0, 4);
@@ -912,14 +538,12 @@ function buildYearMarkers() {
     const midIdx  = (first + last) / 2;
     const midPct  = midIdx / (total - 1) * 100;
 
-    // Year label
     const lbl = document.createElement('div');
     lbl.className   = 'tl-year-label';
     lbl.textContent = year;
     lbl.style.left  = `${midPct}%`;
     labelsEl.appendChild(lbl);
 
-    // Divider before this year (skip the first)
     if (first > 0) {
       const divPct = (first - 0.5) / (total - 1) * 100;
       const div    = document.createElement('div');
@@ -950,13 +574,10 @@ timelineSlider.addEventListener('input', function () {
   updateSliderTrackFill();
 });
 
-// Buttons
 document.getElementById('tl-prev').addEventListener('click', () =>
   setSliderIndex(+timelineSlider.value - 1));
-
 document.getElementById('tl-next').addEventListener('click', () =>
   setSliderIndex(+timelineSlider.value + 1));
-
 document.getElementById('tl-today').addEventListener('click', () =>
   setSliderIndex(TIMELINE_TODAY_INDEX));
 
@@ -987,15 +608,12 @@ playPauseBtn.addEventListener('click', () => {
 
 buildYearMarkers();
 
-
-// ============================================================
-// LAYER SELECTION CONTROL  (top right)
-// ============================================================
+// -- Layer-Auswahl-Control (oben rechts) -----------------------------------
 
 const layerSelectionControl = {
   onAdd() {
     const container = document.createElement('div');
-    container.className = 'maplibregl-ctrl layer-selection-control app-ctrl';
+    container.className = 'maplibregl-ctrl fva-panel app-ctrl layer-selection-control';
     FVAMap.stopMapPropagation(container);
 
     container.innerHTML =
@@ -1027,9 +645,246 @@ const layerSelectionControl = {
 
 map.addControl(layerSelectionControl, 'top-right');
 
+// ============================================================
+// 4. Hover / Lightbox / Tooltip
+// ============================================================
+// Kein Feature-Hover (WMS-Rasterlayer, keine Vektor-Features) und keine
+// Bilder im Popup -> FVAMap.hover.enable/FVAMap.lightbox.init entfallen.
+// Eigenes Tooltip-Element für die Gantt-Grafik im Popup (folgt dem
+// Mauszeiger statt einem Kartenpunkt, deshalb kein FVAMap.hover.tooltip;
+// übernimmt aber dessen CSS-Optik über die geteilte .fva-tooltip-Klasse).
+
+const ganttTooltip = document.createElement('div');
+ganttTooltip.id = 'gantt-tooltip';
+ganttTooltip.className = 'fva-tooltip';
+map.getContainer().appendChild(ganttTooltip);
+
+function showGanttTooltip(e, html) {
+  ganttTooltip.style.display = 'block';
+  ganttTooltip.style.left    = (e.clientX + 14) + 'px';
+  ganttTooltip.style.top     = (e.clientY - 10) + 'px';
+  ganttTooltip.innerHTML     = html;
+}
+function hideGanttTooltip() {
+  ganttTooltip.style.display = 'none';
+}
 
 // ============================================================
-// HELPERS
+// 5. Popup-Verdrahtung für Inhalte
+// ============================================================
+
+// -- Persistenter Popup-Inhalt: einmal gebaut, bei jedem Klick/Jahreswechsel
+//    per FVAMap.popup.open() (erneut) in dasselbe Popup gehängt - genau wie
+//    das früher statische Modal-Markup, nur per JS statt HTML erzeugt.
+//    Referenzen auf die einzelnen Teile kommen aus querySelector auf DIESEM
+//    Container (funktioniert unabhängig davon, ob er gerade im Popup hängt
+//    oder nicht), keine document.getElementById-Aufrufe nötig.
+
+const popupTabs = document.createElement('div');
+popupTabs.className = 'fva-tabs';
+popupTabs.innerHTML =
+  '<button type="button" class="fva-tab fva-tab--active" data-tab="gantt-panel">Grafik</button>' +
+  '<button type="button" class="fva-tab" data-tab="table-panel">Tabelle</button>';
+
+const yearSelect = document.createElement('select');
+yearSelect.id = 'year-select';
+const currentYear = new Date(getToday()).getFullYear();
+for (let y = currentYear; y >= currentYear - 5; y--) {
+  const option       = document.createElement('option');
+  option.value       = y;
+  option.textContent = y;
+  if (y === currentYear) option.selected = true;
+  yearSelect.appendChild(option);
+}
+
+const popupBody = document.createElement('div');
+popupBody.innerHTML = `
+  <div id="chart-area">
+    <div id="chart-loading-overlay" class="fva-spinner-overlay"><div class="fva-spinner"></div></div>
+    <div class="eps-tab-panel is-active" id="gantt-panel">
+      <div class="panel-title">
+        <h2 id="panel-title-text">Entwicklung des Eichenprozessionsspinners</h2>
+        <div class="panel-location" id="gantt-location"></div>
+        <div class="panel-coords" id="modal-coords">–</div>
+      </div>
+      <div id="gantt-wrap" class="fva-scroll-x"></div>
+      <div class="gantt-legend" id="gantt-legend"></div>
+    </div>
+    <div class="eps-tab-panel" id="table-panel">
+      <div class="panel-title">
+        <h2 id="table-title-text">Entwicklung des Eichenprozessionsspinners</h2>
+        <div class="panel-location" id="table-location"></div>
+        <div class="panel-coords" id="table-coords">–</div>
+      </div>
+      <table id="eps-table">
+        <thead>
+          <tr>
+            <th style="width:22%">Phänologisches Ereignis</th>
+            <th style="width:10%">Datum</th>
+            <th style="width:42%">Informationen und Gefährdung</th>
+            <th style="width:26%">Regulierungsmöglichkeiten</th>
+          </tr>
+        </thead>
+        <tbody id="eps-table-body"></tbody>
+      </table>
+      <p id="eps-table-note">* Mechanische Maßnahmen (Entfernung von Nestern) zur Reduktion der Brennhaarbelastung sind ganzjährig möglich.</p>
+    </div>
+  </div>
+`;
+
+const ganttPanel          = popupBody.querySelector('#gantt-panel');
+const tablePanel          = popupBody.querySelector('#table-panel');
+const chartLoadingOverlay = popupBody.querySelector('#chart-loading-overlay');
+const ganttWrapEl         = popupBody.querySelector('#gantt-wrap');
+const ganttLegendEl       = popupBody.querySelector('#gantt-legend');
+const epsTableBodyEl      = popupBody.querySelector('#eps-table-body');
+const panelTitleTextEl    = popupBody.querySelector('#panel-title-text');
+const ganttLocationEl     = popupBody.querySelector('#gantt-location');
+const modalCoordsEl       = popupBody.querySelector('#modal-coords');
+const tableTitleTextEl    = popupBody.querySelector('#table-title-text');
+const tableLocationEl     = popupBody.querySelector('#table-location');
+const tableCoordsEl       = popupBody.querySelector('#table-coords');
+
+function switchTab(targetId) {
+  popupTabs.querySelectorAll('.fva-tab').forEach((btn) =>
+    btn.classList.toggle('fva-tab--active', btn.dataset.tab === targetId));
+  [ganttPanel, tablePanel].forEach((panel) =>
+    panel.classList.toggle('is-active', panel.id === targetId));
+}
+popupTabs.querySelectorAll('.fva-tab').forEach((btn) =>
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+function isGanttTabActive() {
+  return ganttPanel.classList.contains('is-active');
+}
+
+function showLoadingOverlay() { chartLoadingOverlay.classList.add('is-visible'); }
+function hideLoadingOverlay() { chartLoadingOverlay.classList.remove('is-visible'); }
+
+/** Öffnet/aktualisiert das Popup. Header (Tabs links, Jahresauswahl rechts,
+ *  Export, Schließen) kommt komplett von FVAMap.popup.open - nur der Export-
+ *  Bezug (welcher Tab, welcher Dateiname) ist hier fachspezifisch. */
+function openEpsPopup() {
+  FVAMap.popup.open(map, popupBody, {
+    headerLeft: popupTabs,
+    headerRight: yearSelect,
+    exportName: () => `EPS_${isGanttTabActive() ? 'Grafik' : 'Tabelle'}_${yearSelect.value}`,
+    exportTarget: () => (isGanttTabActive() ? ganttPanel : tablePanel),
+    // Lade-Overlay aus dem Export ausschließen, falls beim Klick auf Export
+    // noch sichtbar (Grafik/Tabelle laden noch).
+    exportOptions: { filter: (node) => !node.id || node.id !== 'chart-loading-overlay' },
+    onClose: hideGanttTooltip,
+  });
+}
+
+// Builds the chart date range for a given year (Jan 31 – Sep 30) — always full range
+function buildChartDates(year) {
+  const dates = [];
+  const start = new Date(`${year}-01-31`);
+  const end   = new Date(`${year}-09-30`);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+// Returns the dates actually fetched from WMS — capped at today + 6 days
+function buildFetchDates(dates) {
+  const cap = new Date(getToday());
+  cap.setDate(cap.getDate() + 6);
+  const capStr = cap.toISOString().split('T')[0];
+  return dates.filter(d => d <= capStr);
+}
+
+async function loadAndRenderChart(latlng) {
+  const year       = +yearSelect.value;
+  const dates      = buildChartDates(year);       // full Jan 31 – Sep 30 axis
+  const fetchDates = buildFetchDates(dates);      // capped at today + 6 for WMS
+
+  // 1. Popup sofort mit Skelett zeigen, Tabelle leeren. Nur bei einem
+  //    frischen Klick (Popup noch nicht offen) auf den Grafik-Tab
+  //    zurücksetzen - ein Jahreswechsel soll den gerade aktiven Tab behalten.
+  epsTableBodyEl.innerHTML = '';
+  if (!FVAMap.popup.isOpen()) switchTab('gantt-panel');
+  drawChartSkeleton(dates);
+  showLoadingOverlay();
+  openEpsPopup();
+
+  // 2. Fetch chart data (capped) + BBCH phenology dates in parallel
+  try {
+    const [chartData, bbch] = await Promise.all([
+      fetchAllChartData(latlng, fetchDates),
+      fetchBbchDates(latlng, year)
+    ]);
+    // Pad fetched arrays back to full dates length with nulls
+    const pad = (arr) => {
+      const padded = Array(dates.length).fill(null);
+      arr.forEach((v, i) => { padded[i] = v; });
+      return padded;
+    };
+    const stagesMean = pad(chartData.stagesMean);
+    const stagesFast = pad(chartData.stagesFast);
+    const regulation = pad(chartData.regulation);
+    fillChartData(dates, stagesMean, stagesFast, regulation);
+    fillTableData(dates, stagesMean, stagesFast, regulation, bbch);
+  } catch (err) {
+    console.error(err);
+    ganttWrapEl.innerHTML = '<p class="fva-popup__hint" style="color:#c00">Fehler beim Laden der Daten.</p>';
+  } finally {
+    hideLoadingOverlay();
+  }
+}
+
+let lastClickedLatLng = null;
+let lastLocationName  = null;
+
+function updatePanelTitles(latlng, year, locationName) {
+  const title  = `Entwicklung des Eichenprozessionsspinners ${year}`;
+  const coords = `${latlng.lat.toFixed(5)}° N, ${latlng.lng.toFixed(5)}° E`;
+  const loc    = locationName || '';
+  panelTitleTextEl.textContent = title;
+  tableTitleTextEl.textContent = title;
+  modalCoordsEl.textContent    = coords;
+  tableCoordsEl.textContent    = coords;
+  ganttLocationEl.textContent  = loc;
+  tableLocationEl.textContent  = loc;
+}
+
+map.on('click', async function (e) {
+  const latlng = e.lngLat;   // MapLibre: {lng, lat} — same .lat/.lng shape used below
+  lastClickedLatLng = latlng;
+  lastLocationName  = null;
+  updatePanelTitles(latlng, +yearSelect.value, null);
+  // Fetch location name async — updates title when it arrives
+  fetchLocationName(latlng).then(name => {
+    lastLocationName = name;
+    updatePanelTitles(latlng, +yearSelect.value, name);
+  });
+  await loadAndRenderChart(latlng);
+});
+
+yearSelect.addEventListener('change', async () => {
+  if (!lastClickedLatLng) return;
+  updatePanelTitles(lastClickedLatLng, +yearSelect.value, lastLocationName);
+  await loadAndRenderChart(lastClickedLatLng);
+});
+
+// Initiale Anzeige: Fallback-Timeline sofort, dann echte Termine vom Server
+// nachladen. showLayer() ruft map.addSource()/addLayer() auf, die den
+// fertig geladenen Style brauchen.
+map.on('load', () => {
+  updateSliderTrackFill();
+  showLayer(selectedLayerKey, TIMELINE_TODAY_INDEX);
+
+  fetchAvailableDates().then(dates => {
+    if (dates && dates.length > 1) {
+      rebuildTimeline(filterToRecentYears(dates, 1));
+    }
+  });
+});
+
+// ============================================================
+// 6. Fachspezifische Funktionen für Popup-Inhalte
 // ============================================================
 
 function formatDateGerman(dateStr) {
@@ -1049,17 +904,13 @@ function lightenColor(hex, amount) {
     .toString(16).slice(1);
 }
 
-
-// ============================================================
-// WMS GetFeatureInfo FETCHING  (used by the popup)
-// ============================================================
+// ── WMS GetFeatureInfo FETCHING (used by the popup) ──
 
 // WGS84 → Gauß-Krüger Zone 3 (EPSG:31467)
 // Uses Transverse Mercator on the Bessel 1841 ellipsoid with Potsdam datum shift
 function wgs84ToGK3(lat, lng) {
   // Helmert datum shift: WGS84 → Potsdam (approx, sufficient for GetFeatureInfo bbox)
   const dX = -582, dY = -105, dZ = -414;
-  const da  = -739.845, df = -0.10037483e-4;
 
   const a   = 6378137.0;          // WGS84 semi-major
   const f   = 1 / 298.257223563;  // WGS84 flattening
@@ -1275,10 +1126,7 @@ async function fetchSingleValue(layerName, dimEvent, bbox, year) {
   }
 }
 
-
-// ============================================================
-// CHART DATA PROCESSING  (pure functions, no rendering)
-// ============================================================
+// ── CHART DATA PROCESSING (pure functions, no rendering) ──
 
 // Collapses a value-per-date array into continuous same-value intervals, skipping nulls
 function buildIntervals(dates, values) {
@@ -1360,11 +1208,7 @@ function buildHealthHazardPhases(dates, stagesFast, stagesMean) {
   return phases;
 }
 
-
-// ============================================================
-// GANTT CHART RENDERER
-// Split into: layout → skeleton (axes/grid) → data layers → tooltip
-// ============================================================
+// ── GANTT CHART RENDERER: layout → skeleton (axes/grid) → data layers → tooltip ──
 
 /** Tiny SVG helpers — keep markup in one place */
 const svg = {
@@ -1401,7 +1245,7 @@ function drawChartSkeleton(dates) {
           CHART_HEIGHT, SVG_HEIGHT, dateToX } = buildChartLayout(dates);
 
   const todayStr     = getToday();
-  const selectedYear = +document.getElementById('year-select').value;
+  const selectedYear = +yearSelect.value;
   const MONTH_NAMES  = ['Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep'];
 
   const todayX = (todayStr >= dates[0] && todayStr <= dates[dates.length - 1])
@@ -1448,7 +1292,7 @@ function drawChartSkeleton(dates) {
 
   const clipId = 'clip-' + Date.now();
 
-  document.getElementById('gantt-legend').innerHTML = `
+  ganttLegendEl.innerHTML = `
     <div class="legend-item">
       <div class="legend-swatch" style="background:repeating-linear-gradient(90deg,#6BAF6688 0 6px,transparent 6px 10px)"></div>
       <span>Präventiv zielführend</span>
@@ -1467,7 +1311,7 @@ function drawChartSkeleton(dates) {
     </div>
     <p class="legend-note"></p>`;
 
-  document.getElementById('gantt-wrap').innerHTML = `
+  ganttWrapEl.innerHTML = `
   <svg viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}"
        style="font-family:'Segoe UI',sans-serif; width:100%; min-width:500px">
 
@@ -1513,12 +1357,11 @@ function fillChartData(dates, stagesMean, stagesFast, regulation) {
   const intervalsMean = buildIntervals(dates, stagesMean);
   const intervalsFast = buildIntervals(dates, stagesFast);
 
-  const dataLayer = document.getElementById('gantt-data-layer');
+  const dataLayer = ganttWrapEl.querySelector('#gantt-data-layer');
   if (!dataLayer) return;
 
   if (!intervalsMean.length) {
-    document.getElementById('gantt-wrap').innerHTML =
-      '<p style="color:#999; font-size:12px; padding:20px 0">Keine Daten für diesen Punkt (außerhalb des Rasters?)</p>';
+    ganttWrapEl.innerHTML = '<p class="fva-popup__hint">Keine Daten für diesen Punkt (außerhalb des Rasters?)</p>';
     return;
   }
 
@@ -1593,146 +1436,22 @@ function fillChartData(dates, stagesMean, stagesFast, regulation) {
       });
 
   // ── Tooltip wiring (event delegation — one listener, survives re-renders) ──
-  const ganttWrap = document.getElementById('gantt-wrap');
-  const tooltip   = document.getElementById('gantt-tooltip');
-
-  function showTooltip(e, html) {
-    tooltip.style.display = 'block';
-    tooltip.style.left    = (e.clientX + 14) + 'px';
-    tooltip.style.top     = (e.clientY - 10) + 'px';
-    tooltip.innerHTML     = html;
-  }
-  function hideTooltip() { tooltip.style.display = 'none'; }
-
-  ganttWrap._ttMove = ganttWrap._ttMove || ganttWrap.addEventListener('mousemove', e => {
+  ganttWrapEl._ttMove = ganttWrapEl._ttMove || ganttWrapEl.addEventListener('mousemove', e => {
     const el = e.target.closest('[data-label]');
-    if (!el) { hideTooltip(); return; }
+    if (!el) { hideGanttTooltip(); return; }
     const { label, start, end, forecast } = el.dataset;
     const isHazard   = el.classList.contains('health-hazard-bg');
     const forecastTxt = forecast === 'true' ? '<br><em style="color:#aaa">(Forecast)</em>' : '';
-    showTooltip(e,
+    showGanttTooltip(e,
       isHazard
         ? `<strong>Gesundheitsgefährdung Brennhaare</strong><br>${formatDateGerman(start)} – ${formatDateGerman(end)}`
         : `<strong>${label}</strong><br>${formatDateGerman(start)} – ${formatDateGerman(end)}${forecastTxt}`
     );
   });
-  ganttWrap._ttLeave = ganttWrap._ttLeave || ganttWrap.addEventListener('mouseleave', hideTooltip);
+  ganttWrapEl._ttLeave = ganttWrapEl._ttLeave || ganttWrapEl.addEventListener('mouseleave', hideGanttTooltip);
 }
 
-
-// ============================================================
-// TABLE RENDERER
-// ============================================================
-
-// Full row definitions matching the PDF, in top-to-bottom order.
-// stageId: matches LEGENDS.stages key (null = no server data for this row)
-// regOverride: fixed regulation value (0-3) if not derived from server data
-const TABLE_ROWS = [
-  {
-    key:       'knospenschwellen',
-    label:     "Knospenschwellen der Stieleiche",
-    stageId:   null,
-    info:      "Fraß potenziell erstmals möglich",
-    regFixed:  0,
-    stageColor: "#AAAAAA"
-  },
-  {
-    key:       'blattentfaltung',
-    label:     "Blattentfaltung der Stieleiche",
-    stageId:   null,
-    info:      "Blattgröße ca. 2,5 cm Durchmesser",
-    regFixed:  1,
-    stageColor: "#AAAAAA"
-  },
-  {
-    key:       'l1schlupf',
-    label:     "1. Larvenstadium (Schlupf)",
-    stageId:   1,
-    info:      "Keine Gesundheitsgefahr durch frische Brennhaare,\nMortalität in Hungerphase bis Knospenschwellen",
-    regFixed:  0,
-    stageColor: null
-  },
-  {
-    key:       'frassbeginn',
-    label:     "1. Larvenstadium (Fraßbeginn)",
-    stageId:   null,
-    info:      "Entspricht Zeitpunkt des Knospenschwellens bzw. Schlupfs, falls dieser später eintritt als Knospenschwellen",
-    regFixed:  0,
-    stageColor: LEGENDS.stages[1].color
-  },
-  {
-    key:       'l2',
-    label:     "2. Larvenstadium",
-    stageId:   2,
-    info:      "Keine Gesundheitsgefahr durch frische Brennhaare",
-    regFixed:  1,
-    stageColor: null
-  },
-  {
-    key:       'l3',
-    label:     "3. Larvenstadium",
-    stageId:   3,
-    info:      "Beginn Brennhaarbildung, beginnende Gesundheitsgefahr",
-    regFixed:  1,
-    stageColor: null
-  },
-  {
-    key:       'l4',
-    label:     "4. Larvenstadium",
-    stageId:   4,
-    info:      "Zunahme Brennhaarbildung, deutliche Gesundheitsgefahr",
-    regFixed:  0,
-    stageColor: null
-  },
-  {
-    key:       'l5',
-    label:     "5. Larvenstadium",
-    stageId:   5,
-    info:      "Weitere Zunahme Brennhaarbildung, hohe Gesundheitsgefahr",
-    regFixed:  0,
-    stageColor: null
-  },
-  {
-    key:       'l6',
-    label:     "6. Larvenstadium",
-    stageId:   6,
-    info:      "Höchste Brennhaarmenge und Gesundheitsgefahr",
-    regFixed:  0,
-    stageColor: null
-  },
-  {
-    key:       'puppe',
-    label:     "Puppenstadium",
-    stageId:   7,
-    info:      "Immobiles Stadium",
-    regFixed:  3,
-    stageColor: null
-  },
-  {
-    key:       'falter',
-    label:     "Schlupf der Falter (Adultstadium)",
-    stageId:   8,
-    info:      "50 % der Falter geschlüpft",
-    regFixed:  0,
-    stageColor: null
-  },
-  {
-    key:       'eistadium',
-    label:     "Eistadium",
-    stageId:   0,
-    info:      "Überwinterungsstadium",
-    regFixed:  0,
-    stageColor: null
-  }
-];
-
-// Regulation label display text (short form matching PDF)
-const REG_DISPLAY = {
-  0: "Keine *",
-  1: "Präventive Maßnahmen",
-  2: "Präventiv nicht mehr zielführend",
-  3: "Mechanische Maßnahmen"
-};
+// ── TABLE RENDERER ──
 
 function fillTableData(dates, stagesMean, stagesFast, regulation, bbch) {
   const todayStr      = getToday();
@@ -1812,8 +1531,7 @@ function fillTableData(dates, stagesMean, stagesFast, regulation, bbch) {
   const withoutDate = rowsWithDates.filter(r => r.resolvedDate === null).sort((a, b) => a.originalIndex - b.originalIndex);
   const sorted      = [...withDate, ...withoutDate];
 
-  const tbody = document.getElementById('eps-table-body');
-  tbody.innerHTML = sorted.map(row => {
+  epsTableBodyEl.innerHTML = sorted.map(row => {
     const stageColor = row.stageColor ?? LEGENDS.stages[row.stageId]?.color ?? '#AAAAAA';
     const regColor   = LEGENDS.regulation[row.regFixed]?.color ?? '#DDDDDD';
     const stageBg    = tint(stageColor, 0.15);
@@ -1827,159 +1545,6 @@ function fillTableData(dates, stagesMean, stagesFast, regulation, bbch) {
     </tr>`;
   }).join('');
 }
-
-
-// ============================================================
-// PNG EXPORT  (html-to-image — captures the active modal panel as-is)
-// ============================================================
-
-async function exportPng() {
-  const isGantt = document.getElementById('gantt-panel').classList.contains('active');
-  const panel   = document.getElementById(isGantt ? 'gantt-panel' : 'table-panel');
-  if (!panel || typeof htmlToImage === 'undefined') {
-    console.error('html-to-image not loaded or panel missing');
-    return;
-  }
-
-  const btn = document.getElementById('print-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-
-  try {
-    const dataUrl = await htmlToImage.toPng(panel, {
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-      // skip the loading spinner if somehow visible
-      filter: (node) => node.id !== 'chart-loading-overlay'
-    });
-    const a = document.createElement('a');
-    a.download = `EPS_${isGantt ? 'Grafik' : 'Tabelle'}_${yearSelect.value}.png`;
-    a.href = dataUrl;
-    a.click();
-  } catch (err) {
-    console.error('Export failed:', err);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Export'; }
-  }
-}
-
-
-// ============================================================
-// MODAL CONTROLLER
-// ============================================================
-
-const modalOverlay = document.getElementById('modal-overlay');
-
-function openModal()  { modalOverlay.classList.add('open'); }
-function closeModal() {
-  modalOverlay.classList.remove('open');
-  document.getElementById('gantt-tooltip').style.display = 'none';
-}
-
-document.getElementById('modal-close-btn').addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
-
-// Year selector — populate on load
-const yearSelect  = document.getElementById('year-select');
-const currentYear = new Date(getToday()).getFullYear();
-
-for (let y = currentYear; y >= currentYear - 5; y--) {
-  const option       = document.createElement('option');
-  option.value       = y;
-  option.textContent = y;
-  if (y === currentYear) option.selected = true;
-  yearSelect.appendChild(option);
-}
-
-// Builds the chart date range for a given year (Jan 31 – Sep 30) — always full range
-function buildChartDates(year) {
-  const dates = [];
-  const start = new Date(`${year}-01-31`);
-  const end   = new Date(`${year}-09-30`);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    dates.push(d.toISOString().split('T')[0]);
-  }
-  return dates;
-}
-
-// Returns the dates actually fetched from WMS — capped at today + 6 days
-function buildFetchDates(dates) {
-  const cap = new Date(getToday());
-  cap.setDate(cap.getDate() + 6);
-  const capStr = cap.toISOString().split('T')[0];
-  return dates.filter(d => d <= capStr);
-}
-
-function showLoadingOverlay()  {
-  document.getElementById('chart-loading-overlay').classList.add('visible');
-}
-function hideLoadingOverlay()  {
-  document.getElementById('chart-loading-overlay').classList.remove('visible');
-}
-
-async function loadAndRenderChart(latlng) {
-  const year       = +yearSelect.value;
-  const dates      = buildChartDates(year);       // full Jan 31 – Sep 30 axis
-  const fetchDates = buildFetchDates(dates);      // capped at today + 6 for WMS
-
-  // 1. Show modal immediately with skeleton, reset title but keep active tab
-  document.getElementById('chart-area').style.display = 'block';
-  document.getElementById('eps-table-body').innerHTML = '';
-  // Only reset to Grafik tab on a fresh map click (modal not yet open)
-  if (!modalOverlay.classList.contains('open')) switchTab('gantt-panel');
-  drawChartSkeleton(dates);
-  showLoadingOverlay();
-  openModal();
-
-  // 2. Fetch chart data (capped) + BBCH phenology dates in parallel
-  try {
-    const [chartData, bbch] = await Promise.all([
-      fetchAllChartData(latlng, fetchDates),
-      fetchBbchDates(latlng, year)
-    ]);
-    // Pad fetched arrays back to full dates length with nulls
-    const pad = (arr) => {
-      const padded = Array(dates.length).fill(null);
-      arr.forEach((v, i) => { padded[i] = v; });
-      return padded;
-    };
-    const stagesMean = pad(chartData.stagesMean);
-    const stagesFast = pad(chartData.stagesFast);
-    const regulation = pad(chartData.regulation);
-    fillChartData(dates, stagesMean, stagesFast, regulation);
-    fillTableData(dates, stagesMean, stagesFast, regulation, bbch);
-  } catch (err) {
-    console.error(err);
-    document.getElementById('gantt-wrap').innerHTML =
-      '<p style="color:#c00; font-size:12px; padding:20px 0">Fehler beim Laden der Daten.</p>';
-  } finally {
-    hideLoadingOverlay();
-  }
-}
-
-
-// ============================================================
-// TAB SWITCHING
-// ============================================================
-
-function switchTab(targetId) {
-  document.querySelectorAll('.modal-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === targetId);
-  });
-  document.querySelectorAll('.modal-tab-panel').forEach(panel => {
-    panel.classList.toggle('active', panel.id === targetId);
-  });
-}
-
-document.querySelectorAll('.modal-tab').forEach(btn => {
-  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-});
-
-
-// ============================================================
-// MAP CLICK HANDLER
-// ============================================================
-
-let lastClickedLatLng = null;
 
 // Fetches municipality name for a clicked point from DWD Warngebiete layer
 async function fetchLocationName(latlng) {
@@ -2006,7 +1571,6 @@ async function fetchLocationName(latlng) {
     const data = await res.json();
     const feat = data.features?.[0];
     if (!feat) return null;
-    // Try common property names for municipality
     return feat.properties?.NAME
         || feat.properties?.GEN
         || feat.properties?.name
@@ -2016,57 +1580,6 @@ async function fetchLocationName(latlng) {
     return null;
   }
 }
-
-function updatePanelTitles(latlng, year, locationName) {
-  const title  = `Entwicklung des Eichenprozessionsspinners ${year}`;
-  const coords = `${latlng.lat.toFixed(5)}° N, ${latlng.lng.toFixed(5)}° E`;
-  const loc    = locationName || '';
-  document.getElementById('panel-title-text').textContent  = title;
-  document.getElementById('table-title-text').textContent  = title;
-  document.getElementById('modal-coords').textContent      = coords;
-  document.getElementById('table-coords').textContent      = coords;
-  document.getElementById('gantt-location').textContent    = loc;
-  document.getElementById('table-location').textContent    = loc;
-}
-
-let lastLocationName  = null;
-
-map.on('click', async function (e) {
-  const latlng = e.lngLat;   // MapLibre: {lng, lat} — same .lat/.lng shape used below
-  lastClickedLatLng = latlng;
-  lastLocationName  = null;
-  updatePanelTitles(latlng, +yearSelect.value, null);
-  // Fetch location name async — updates title when it arrives
-  fetchLocationName(latlng).then(name => {
-    lastLocationName = name;
-    updatePanelTitles(latlng, +yearSelect.value, name);
-  });
-  await loadAndRenderChart(latlng);
-});
-
-yearSelect.addEventListener('change', async () => {
-  if (!lastClickedLatLng) return;
-  updatePanelTitles(lastClickedLatLng, +yearSelect.value, lastLocationName);
-  await loadAndRenderChart(lastClickedLatLng);
-});
-
-
-// ============================================================
-// INITIAL RENDER
-// ============================================================
-
-// Initial render with fallback timeline, then try to fetch real dates from server.
-// showLayer() calls map.addSource()/addLayer(), which need the style ready first.
-map.on('load', () => {
-  updateSliderTrackFill();
-  showLayer(selectedLayerKey, TIMELINE_TODAY_INDEX);
-
-  fetchAvailableDates().then(dates => {
-    if (dates && dates.length > 1) {
-      rebuildTimeline(filterToRecentYears(dates, 1));
-    }
-  });
-});
 
 </script>
 </body>

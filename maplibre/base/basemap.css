@@ -1,28 +1,29 @@
 /* =========================================================================
    FVA – Gemeinsame Basemap-Styles
    Gilt für ALLE Karten (karte_*.html). Nur hier ändern, nie pro Karte
-   duplizieren. Ungenutzte Regeln (z. B. .map-legend__note ohne passendes
-   Element auf der Seite) haben keinerlei Kosten.
+   duplizieren. Ungenutzte Regeln (z.B. .map-legend__note ohne passendes
+   Element auf der Seite) haben keinerlei Kosten – lieber hier einmal
+   pflegen als in jeder karte_*.html neu erfinden.
    ========================================================================= */
 
 :root {
   /* Werte aus dem FVA-Website-Theme (Bootstrap-Custom-Properties). */
-  --fva-green: #006e60;      /* --primary */
+  --fva-green: #006e60; /* --primary */
   --fva-green-dark: #00544a; /* --primary, abgedunkelt (Hover/Active) */
-  --fva-text: #343a40;       /* --dark */
+  --fva-text: #343a40; /* --dark */
   --fva-text-muted: #6c757d; /* --gray */
   --fva-border: #dee2e6;
-  --fva-bg: #ffffff;         /* --white */
-  --fva-bg-muted: #f8f9fa;   /* --light */
-  --fva-danger: #ff4136;     /* --danger */
+  --fva-bg: #ffffff; /* --white */
+  --fva-bg-muted: #f8f9fa; /* --light */
+  --fva-danger: #ff4136; /* --danger */
   --fva-radius: 8px;
   --fva-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  --fva-font: "PT Sans Narrow", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol";
+  --fva-font: "PT Sans Narrow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -30,11 +31,20 @@ html, body {
   color: var(--fva-text);
 }
 
-#map, .fva-map, .behoerde-map {
+#map,
+.fva-map {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Opt-in Cursor für eine Karte, die per Klick abfragt statt Features zu
+   hovern (siehe FVAMap.init({cursor:"crosshair"}), z.B. karte_eps.html).
+   MapLibre setzt eigene Cursor-Zustände auf dem Canvas (grab/grabbing/...) -
+   !important erzwingt den Crosshair unabhängig vom Drag-Zustand. */
+.fva-map--cursor-crosshair .maplibregl-canvas {
+  cursor: crosshair !important;
 }
 
 /* -------------------------------------------------------------------------
@@ -54,93 +64,37 @@ html, body {
 }
 
 /* Eigene (nicht-native) Controls (Legende, Timeline, Layer-Auswahl, ...)
-   bekommen über diese Klasse denselben 10px-Eckabstand wie MapLibres
-   eigene Controls – an jede eigene Control-Container-Div anhängen.
+   bekommen über diese Klasse denselben 10px-Eckabstand wie MapLibres eigene
+   Controls – an jede eigene Control-Container-Div anhängen.
    pointer-events:auto ist die Absicherung: die MapLibre-Ecken-Container
-   setzen pointer-events:none; ohne Rücknahme fallen Klicks/Scrolls durch
-   das Control auf die Karte durch (Symptom: Klick auf die Legende öffnet
-   ein Popup). Eigene Controls sollten zusätzlich die Klasse
-   "maplibregl-ctrl" tragen. */
+   setzen pointer-events:none; ohne Rücknahme fallen Klicks/Scrolls durch das
+   Control auf die Karte durch (Symptom: Klick auf ein Overlay öffnet ein
+   Popup). Eigene Controls sollten zusätzlich die Klasse "maplibregl-ctrl"
+   tragen und FVAMap.stopMapPropagation(el) aufrufen. */
 .app-ctrl {
   margin: 10px;
   pointer-events: auto;
 }
 
-/* -------------------------------------------------------------------------
-   Popup-Hülle (fix) – Rahmen für ALLE Kartentypen, greift automatisch bei
-   JEDEM maplibregl.Popup, unabhängig davon, wie der Inhalt gebaut wurde.
-   ------------------------------------------------------------------------- */
-.maplibregl-popup-content {
-  padding: 0 !important;
-  border-radius: var(--fva-radius) !important;
-  box-shadow: var(--fva-shadow) !important;
+/* Gemeinsame Optik für ALLE eigenen Controls (Legende, Timeline,
+   Layer-Auswahl, ...) – dieselbe Box wie .map-legend unten, generalisiert
+   für Controls ohne Legenden-Inhalt. An den Control-Container zusätzlich zu
+   "maplibregl-ctrl app-ctrl" anhängen; das Control liefert nur noch sein
+   eigenes Innenleben (Layout/Inhalt), nicht mehr Hintergrund/Radius/Schatten. */
+.fva-panel {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--fva-radius);
+  box-shadow: var(--fva-shadow);
   font-family: var(--fva-font);
-  overflow: hidden;
+  font-size: 12px;
 }
 
-/* Basis-Styling für ganz normale HTML-Tags direkt im Popup - greift auch
-   OHNE jede der fva-popup__*-Klassen unten, z.B. bei simplem
-   `.setHTML("<h3>Titel</h3><p>Text</p>")`. Die fva-popup__*-Klassen
-   bleiben als Opt-in für aufwändiger strukturierte Popups (mehrzeilig,
-   Bilder, Tabs) verfügbar - siehe karte_wrw.html/karte_level2.html. */
-.maplibregl-popup-content h1,
-.maplibregl-popup-content h2,
-.maplibregl-popup-content h3 {
-  margin: 0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--fva-border);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--fva-text);
-}
-
-.maplibregl-popup-content p,
-.maplibregl-popup-content dl,
-.maplibregl-popup-content table,
-.maplibregl-popup-content ul,
-.maplibregl-popup-content ol {
-  margin: 8px 14px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--fva-text);
-}
-
-.maplibregl-popup-content > img {
-  max-width: calc(100% - 28px);
-  border-radius: 4px;
-  display: block;
-  margin: 8px 14px;
-}
-
-/* Schließen-"X": MapLibres eigener Button zeigt hart einprogrammiert "×"
-   (U+00D7, siehe vendor/maplibre-gl.js) - lässt sich nicht per Option
-   umstellen. Für ein einheitliches "X" wie im EPS-Modal (das kein
-   maplibregl.Popup ist, siehe #modal-close-btn in karte_eps.html) blenden
-   wir den nativen Text aus und setzen per ::after dasselbe Zeichen (✕,
-   U+2715) - reine CSS-Optik, an der Klick-Fläche/Funktion ändert sich
-   nichts. Greift automatisch bei jedem maplibregl.Popup, egal welche
-   Karte ihn öffnet. */
-.maplibregl-popup-close-button {
-  font-size: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Kein graues Hover-Feld wie MapLibres eigenes (siehe vendor/maplibre-gl.css,
-     .maplibregl-popup-close-button:hover) - wie im EPS-Modal reicht ein
-     Farbwechsel des Zeichens selbst (siehe :hover::after unten). */
-  background-color: transparent !important;
-}
-.maplibregl-popup-close-button::after {
-  content: "✕";
-  font-size: 20px;
-  color: var(--fva-text-muted);
-}
-.maplibregl-popup-close-button:hover::after {
-  color: var(--fva-text);
-}
-
+/* -------------------------------------------------------------------------
+   Popup-Inhalt – Bausteine für den Inhalt, den eine karte_*.html per
+   FVAMap.popup.open() in das Popup gibt (siehe .fva-modal__body weiter
+   unten für die Hülle selbst). Wird direkt auf den content-Wurzel-Container
+   gesetzt, den eine karte_*.html baut (siehe karte_wrw.html/karte_level2.html).
+   ------------------------------------------------------------------------- */
 .fva-popup {
   min-width: 220px;
   max-width: 320px;
@@ -149,6 +103,13 @@ html, body {
 .fva-popup.fva-popup--large {
   min-width: 320px;
   max-width: 520px;
+}
+
+/* Popup-Inhalt, der die vom Modal per widthPercent zugeteilte Breite nutzen
+   soll (Grafiken/Tabellen), statt auf max-width:520px gedeckelt zu sein –
+   siehe karte_level2.html/karte_eps.html. */
+.fva-popup.fva-popup--fluid {
+  max-width: none;
 }
 
 .fva-popup__body {
@@ -166,7 +127,7 @@ html, body {
 }
 
 /* Bilder mit dieser Klasse öffnen per Klick die gemeinsame Lightbox
-   (siehe FVAMap.initImageLightbox in basemap.js) */
+   (siehe FVAMap.lightbox.init in basemap.js). */
 .fva-popup__img {
   cursor: zoom-in;
 }
@@ -178,19 +139,28 @@ html, body {
   padding: 3px 0;
   border-bottom: 1px solid var(--fva-border);
 }
-.fva-popup__row:last-child { border-bottom: none; }
+.fva-popup__row:last-child {
+  border-bottom: none;
+}
 
 .fva-popup__row-label {
   color: var(--fva-text-muted);
   font-weight: 600;
 }
 
+/* Kleingedruckter Status-/Hinweistext im Popup-Inhalt (lädt/leer/Fehler),
+   z.B. "Lade Wasserhaushalt …" oder "Wasserhaushalt nicht verfügbar: ...". */
+.fva-popup__hint {
+  font-size: 13px;
+  color: var(--fva-text-muted);
+  padding: 10px 0;
+}
+
 /* -------------------------------------------------------------------------
-   Legende – Basis für alle Karten
-   Wird als echtes MapLibre-Control erzeugt (FVAMap.addLegend,
-   map.addControl(legend, 'bottom-right')); die Positionierung übernimmt
-   MapLibre selbst (siehe .maplibregl-ctrl-* oben), daher hier ohne
-   position:absolute.
+   Legende – Basis für alle Karten. Wird als echtes MapLibre-Control erzeugt
+   (FVAMap.addLegend, map.addControl(legend, 'bottom-right')); die
+   Positionierung übernimmt MapLibre selbst (siehe .maplibregl-ctrl-* oben),
+   daher hier ohne position:absolute.
    ------------------------------------------------------------------------- */
 .map-legend {
   background: rgba(255, 255, 255, 0.96);
@@ -236,8 +206,12 @@ html, body {
   color: var(--fva-text-muted);
 }
 
-.map-legend.is-collapsed .map-legend__items { display: none; }
-.map-legend.is-collapsed .map-legend__chevron { transform: rotate(-90deg); }
+.map-legend.is-collapsed .map-legend__items {
+  display: none;
+}
+.map-legend.is-collapsed .map-legend__chevron {
+  transform: rotate(-90deg);
+}
 
 .map-legend__items {
   padding: 4px 10px 10px 10px;
@@ -259,8 +233,22 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Optionaler Hinweistext unter der Legende (z. B. für dynamische Layer) –
-   ungenutzt auf Karten ohne diese Klasse, siehe Kommentar oben. */
+/* Runder Punkt statt Quadrat - für eine Legende, die wie die echten
+   Kartenpunkte aussehen soll (FVAMap.addLegend items[].shape). */
+.map-legend__swatch--circle {
+  border-radius: 50%;
+}
+
+/* Punkt mit weißer Mitte und farbigem Rand (z.B. "Brutbeobachtungsbaum"
+   statt "Falle", siehe karte_borkenkaefer.html) - item.color setzt hier die
+   Randfarbe (border-color, siehe basemap.js), nicht den Hintergrund. */
+.map-legend__swatch--ring {
+  border-radius: 50%;
+  border-width: 2px;
+  background: #ffffff;
+}
+
+/* Optionaler Hinweistext unter der Legende (z.B. für dynamische Layer). */
 .map-legend__note {
   margin-top: 7px;
   padding-top: 6px;
@@ -270,16 +258,32 @@ html, body {
   line-height: 1.5;
 }
 
+/* Kleiner, dauerhaft sichtbarer Hinweistext auf der Karte (z.B. Datenherkunft/
+   -qualität) - nutzt dieselbe Box-Optik wie .fva-panel, aber ohne Legenden-
+   Header/Einklappbarkeit. An den eigenen Control-Container zusätzlich zu
+   "maplibregl-ctrl app-ctrl" anhängen, siehe karte_borkenkaefer.html. */
+.fva-info-note {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--fva-radius);
+  box-shadow: var(--fva-shadow);
+  font-family: var(--fva-font);
+  padding: 8px 12px;
+  max-width: 260px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fva-text-muted);
+}
+
 /* -------------------------------------------------------------------------
    Statische Attribution – ersetzt MapLibres interaktive (i)-Box
-   (attributionControl:false in FVAMap.create()). Rechtlich reicht ein
+   (attributionControl:false in FVAMap.init()). Rechtlich reicht ein
    dauerhaft sichtbarer Text; bewusst klein/unauffällig gehalten, da sie
-   sich die Ecke oft mit einem eigenen Control (z.B. Timeline) teilt.
-   Sitzt bündig unten rechts - dafür trägt das Element zusätzlich MapLibres
-   eigene "maplibregl-ctrl-attrib"-Klasse (siehe vendor/maplibre-gl.css),
-   die den 10px-Rand der anderen Controls per margin:0 selbst schon aufhebt.
-   Der einzige Rest-Versatz ist unser eigenes margin:10px auf
-   .maplibregl-ctrl-bottom-right oben - die negativen Werte hier gleichen
+   sich die Ecke oft mit einem eigenen Control (z.B. Timeline) teilt. Sitzt
+   bündig unten rechts – dafür trägt das Element zusätzlich MapLibres eigene
+   "maplibregl-ctrl-attrib"-Klasse (siehe vendor/maplibre-gl.css), die den
+   10px-Rand der anderen Controls per margin:0 selbst schon aufhebt. Der
+   einzige Rest-Versatz ist unser eigenes margin:10px auf
+   .maplibregl-ctrl-bottom-right oben – die negativen Werte hier gleichen
    genau das wieder aus.
    ------------------------------------------------------------------------- */
 .fva-attribution.maplibregl-ctrl-attrib {
@@ -344,13 +348,13 @@ html, body {
 }
 
 /* -------------------------------------------------------------------------
-   Bild-Lightbox (gemeinsam für alle Karten, siehe initImageLightbox) - kann
-   aus einem Bild INNERHALB von FVAMap.openModal() geöffnet werden (z.B.
-   karte_wrw.html), muss also über dem Modal liegen. z-index 10001 statt
-   ebenfalls 10000 wie .fva-modal-overlay: bei gleichem z-index würde sonst
-   die DOM-Reihenfolge entscheiden - initImageLightbox() läuft schon beim
-   Kartenstart (Lightbox existiert früh im DOM), das Modal aber erst lazy
-   beim ersten Öffnen, landet also später im DOM und damit fälschlich obendrüber.
+   Bild-Lightbox (gemeinsam für alle Karten, siehe FVAMap.lightbox.init) -
+   kann aus einem Bild INNERHALB von FVAMap.popup.open() geöffnet werden
+   (z.B. karte_wrw.html), muss also über dem Popup liegen. z-index 10001
+   statt ebenfalls 10000 wie .fva-modal-overlay: bei gleichem z-index würde
+   sonst die DOM-Reihenfolge entscheiden – die Lightbox existiert schon beim
+   Kartenstart früh im DOM, das Popup aber erst lazy beim ersten Öffnen und
+   würde fälschlich obendrüber landen.
    ------------------------------------------------------------------------- */
 .fva-lightbox {
   display: none;
@@ -363,7 +367,9 @@ html, body {
   cursor: zoom-out;
 }
 
-.fva-lightbox.is-open { display: flex; }
+.fva-lightbox.is-open {
+  display: flex;
+}
 
 .fva-lightbox img {
   max-width: 90vw;
@@ -373,11 +379,10 @@ html, body {
 }
 
 /* -------------------------------------------------------------------------
-   Zentriertes Modal (gemeinsam für alle Karten, siehe FVAMap.openModal) -
-   für Popup-Inhalte, die zu breit/hoch für ein normales maplibregl.Popup
-   sind (Bilder, Charts). Sitzt fest im Viewport, IMMER mittig, unabhängig
-   vom Kartenausschnitt/der Klickposition - anders als ein map.Popup mit
-   setLngLat(). Optik konsistent mit dem EPS-eigenen Modal (karte_eps.html).
+   Zentriertes Popup/Modal (gemeinsam für alle Karten, siehe
+   FVAMap.popup.open) – für Inhalte, die zu breit/hoch für ein normales
+   maplibregl.Popup wären (Bilder, Charts, Tabellen mit Tabs). Sitzt fest im
+   Viewport, IMMER mittig, unabhängig vom Kartenausschnitt/der Klickposition.
    ------------------------------------------------------------------------- */
 .fva-modal-overlay {
   display: none;
@@ -390,7 +395,9 @@ html, body {
   padding: 20px;
 }
 
-.fva-modal-overlay.is-open { display: flex; }
+.fva-modal-overlay.is-open {
+  display: flex;
+}
 
 .fva-modal {
   position: relative;
@@ -404,8 +411,9 @@ html, body {
   flex-direction: column;
 }
 
-/* Fester Header: Titel (optional, links) - Export - Schließen-X (rechts).
-   Gleiche Zeile für jedes Modal, siehe FVAMap.openModal. */
+/* Fester Header: Titel/Tabs (links, flex:1) - optionales Extra-Control
+   (z.B. Jahresauswahl) - Export - Schließen-X (rechts). Gleiche Zeile für
+   jedes Popup, siehe FVAMap.popup.open. */
 .fva-modal__header {
   display: flex;
   align-items: center;
@@ -417,16 +425,23 @@ html, body {
 
 .fva-modal__title {
   flex: 1;
-  min-width: 0; /* nötig, damit text-overflow in einem Flex-Item greift */
+  min-width: 0; /* nötig, damit text-overflow/Tabs in einem Flex-Item greifen */
   font-weight: 700;
   font-size: 14px;
   color: var(--fva-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex; /* nimmt sowohl reinen Text als auch ein headerLeft-Element (Tabs) auf */
+  align-items: center;
 }
 
-/* Gleiche Optik wie #print-btn in karte_eps.html. */
+.fva-modal__header-extra {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
 .fva-modal__export {
   flex-shrink: 0;
   background: none;
@@ -438,13 +453,14 @@ html, body {
   cursor: pointer;
   color: #555;
 }
-.fva-modal__export:hover { background: #f5f5f5; }
-.fva-modal__export:disabled { cursor: default; opacity: 0.6; }
+.fva-modal__export:hover {
+  background: #f5f5f5;
+}
+.fva-modal__export:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
 
-/* Gleiche Optik wie der Schließen-Button der maplibregl.Popups (siehe
-   .maplibregl-popup-close-button oben) - kein eigenes CSS-Modul dafür,
-   weil MapLibres Button eine eigene Klasse aus der Vendor-CSS erzwingt und
-   dieser hier ein ganz normaler <button> ohne solche Vorgabe ist. */
 .fva-modal__close {
   flex-shrink: 0;
   font-size: 0;
@@ -467,12 +483,10 @@ html, body {
 }
 
 /* flex:1 + min-height:0 (Standard-Flexbox-Kniff): füllt die von
-   FVAMap.openModal per opts.heightPercent gesetzte Modal-Höhe tatsächlich
-   aus (sonst bliebe .fva-modal__body auf seine eigene Inhaltsgröße
-   begrenzt) und erlaubt overflow:auto trotzdem, unter diese Inhaltsgröße
-   zu schrumpfen. Ohne heightPercent (Modal ohne explizite Höhe) ändert das
-   nichts - dann gibt es innerhalb von .fva-modal keinen Rest-Platz zum
-   Verteilen. */
+   FVAMap.popup.open per opts.heightPercent gesetzte Höhe tatsächlich aus
+   (sonst bliebe .fva-modal__body auf seine eigene Inhaltsgröße begrenzt)
+   und erlaubt overflow:auto trotzdem, unter diese Inhaltsgröße zu
+   schrumpfen. Ohne heightPercent ändert das nichts. */
 .fva-modal__body {
   flex: 1 1 auto;
   min-height: 0;
@@ -480,16 +494,94 @@ html, body {
 }
 
 /* -------------------------------------------------------------------------
+   Tabs – gemeinsames Muster für Inhalte mit mehreren Ansichten im selben
+   Popup (Tiefen-Auswahl in karte_level2.html, Grafik/Tabelle in
+   karte_eps.html). .fva-tabs ist die Zeile, .fva-tab ein einzelner Button,
+   .fva-tab--active markiert den aktiven.
+   ------------------------------------------------------------------------- */
+.fva-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--fva-border);
+}
+
+.fva-tab {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--fva-text-muted);
+  border-bottom: 2px solid transparent;
+}
+.fva-tab:hover {
+  color: var(--fva-green);
+}
+.fva-tab.fva-tab--active {
+  color: var(--fva-green);
+  border-bottom-color: var(--fva-green);
+  font-weight: 600;
+}
+
+/* Modal-Header-Variante: dünnere Innenabstände, damit die Tabs in die feste
+   Header-Höhe passen, kein eigener unterer Rahmen (der Header-Rahmen
+   übernimmt die Trennlinie), Grundlinie an .fva-modal__header ausgerichtet. */
+.fva-modal__header .fva-tabs {
+  border-bottom: none;
+  gap: 0;
+}
+.fva-modal__header .fva-tab {
+  padding: 10px 16px;
+  margin-bottom: -1px;
+}
+
+/* -------------------------------------------------------------------------
+   Ladeindikator (Spinner) – für async nachgeladene Popup-Inhalte
+   (Grafiken/Charts), z.B. karte_eps.html.
+   ------------------------------------------------------------------------- */
+.fva-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #e6e6e6;
+  border-top-color: var(--fva-green);
+  border-radius: 50%;
+  animation: fva-spin 0.9s linear infinite;
+}
+@keyframes fva-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fva-spinner-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+.fva-spinner-overlay.is-visible {
+  display: flex;
+}
+
+/* -------------------------------------------------------------------------
    Seitlicher Scroll-Container für Inhalte mit Mindestbreite (Charts,
-   Tabellen, ...) - Standardmuster für dichte Inhalte, die auf schmalen
+   Tabellen, ...) – Standardmuster für dichte Inhalte, die auf schmalen
    Bildschirmen sonst gestaucht/unlesbar würden: das Kind bekommt eine
    min-width, DIESER Wrapper bleibt width:100% und scrollt horizontal, statt
-   dass das Kind gequetscht wird. Wichtig: overflow-x gehört an den WRAPPER,
-   nicht an das Kind selbst - ein Kind, dessen eigene Breite (z. B. von
-   Plotly per layout.width) bereits auf seine Zielgröße gesetzt wird, kann
-   nie "in sich selbst" überlaufen.
-   Genutzt von karte_eps.html (#gantt-wrap) und karte_level2.html
-   (chartScroll in buildTabs()) - beide setzen diese Klasse direkt.
+   dass das Kind gequetscht wird. overflow-x gehört an den WRAPPER, nicht an
+   das Kind selbst – ein Kind, dessen eigene Breite bereits auf seine
+   Zielgröße gesetzt wird (z.B. Plotly per layout.width, oder ein SVG mit
+   width:100%), kann nie "in sich selbst" überlaufen.
    ------------------------------------------------------------------------- */
 .fva-scroll-x {
   width: 100%;

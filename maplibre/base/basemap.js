@@ -2,58 +2,43 @@
  * FVA – Gemeinsame Basemap
  * ---------------------------------------------------------------------
  * Wird von JEDER karte_*.html eingebunden (nach vendor/maplibre-gl.js).
- * Stellt die Karten-Initialisierung, Legenden-Baukasten und
- * Layer-Interaktion bereit. Fachspezifischer Code (Layer, Datenquellen,
- * Popups) gehört NICHT hierher, sondern in die jeweilige karte_*.html.
+ * Fachspezifischer Code (Layer, Datenquellen, Popup-Inhalte) gehört NICHT
+ * hierher, sondern in die jeweilige karte_*.html – siehe README.md, Regel
+ * "Karten-Init nur über FVAMap".
  *
- * Namespace: window.FVAMap
+ * Namespace: window.FVAMap. Fünf Kernfunktionen (siehe README.md):
+ *   FVAMap.init(options)               – Karte aus der Basemap erzeugen
+ *   FVAMap.addLegend(map, opts)        – Legende unten rechts
+ *   FVAMap.popup.open(map, el, opts)   – zentriertes Popup (Titel/Tabs,
+ *                                         Export, Schließen)
+ *   FVAMap.lightbox.init(map)          – Bild-Lightbox für Popup-Bilder
+ *   FVAMap.hover.enable(...) / .tooltip(map) – Hover-Hervorhebung + Tooltip
+ *
+ * Dazu ein paar schmale Ausdrucks-/DOM-Hilfsfunktionen (matchExpr,
+ * caseExpr, hoverExpr, stopMapPropagation, onFullscreenChange), die jede
+ * Karte sonst wortgleich selbst schreiben müsste.
  *
  * Design-Tokens (Farben, Schrift): KANONISCH in base/basemap.css als
- * CSS-Custom-Properties (:root { --fva-* }). Wird hier nirgends als JS
- * gebraucht - eigene Grafiken/Controls lesen die Werte direkt per
- * var(--fva-green) im CSS, siehe basemap.css und die style-Blöcke der
- * einzelnen karte_*.html.
- *
- * KONVENTION - diese Dinge gelten für JEDE Karte fest und sind bewusst
- * KEINE Optionen von create(), damit keine karte_*.html versehentlich
- * davon abweichen kann:
- *   - Fullscreen-Control an
- *   - Rotation gesperrt (Drag + Touch)
- *   - Style-Fallback auf rohe OSM-Kacheln, falls der Haupt-Style nicht ladbar ist
- *   - statische Attribution statt der interaktiven MapLibre-(i)-Box
+ * CSS-Custom-Properties (:root { --fva-* }). Eigene Grafiken/Controls
+ * lesen die Werte direkt per var(--fva-green) im CSS.
  * ---------------------------------------------------------------------
  */
 (function (global) {
   "use strict";
 
-  const PRIMARY_STYLE = "https://tiles.openfreemap.org/styles/positron";
+  const PRIMARY_STYLE = "https://tiles.openfreemap.org/styles/bright";
 
   // Kommt nur zum Einsatz, wenn PRIMARY_STYLE nicht ladbar ist (Dienst down
-  // o.ä.). Baut die Karte direkt aus rohen Kacheln, unabhängig von einem
-  // zweiten style.json-Dienst.
-  const FALLBACK_STYLE = {
-    version: 8,
-    sources: {
-      "osm-fallback": {
-        type: "raster",
-        tiles: [
-          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        ],
-        tileSize: 256,
-        attribution: "© OpenStreetMap-Mitwirkende",
-      },
-    },
-    layers: [{ id: "osm-fallback-layer", type: "raster", source: "osm-fallback" }],
-  };
+  // o.ä.). Unsere eigene, lokal liegende Basemap (BKG smarttiles_de/wld) statt
+  // rohem OSM-Raster, damit auch im Fallback-Fall eine vektorbasierte,
+  // FVA-eigene Karte erscheint statt eines reinen Kachel-Notbehelfs.
+  const FALLBACK_STYLE = "../base/basemap-world.json";
 
   // Standard-Attributionstext, wenn eine Karte keinen eigenen angibt.
   // Volltext von https://tiles.openfreemap.org/planet (TileJSON-Feld
-  // "attribution") übernommen. Als FVAMap.DEFAULT_ATTRIBUTION exportiert,
-  // damit einzelne Karten zusätzliche Quellen anhängen können, ohne den
-  // Pflichttext neu abschreiben zu müssen:
-  //   FVAMap.create({ ..., attribution: FVAMap.DEFAULT_ATTRIBUTION + " · Daten: XY" })
+  // "attribution"). Als FVAMap.DEFAULT_ATTRIBUTION exportiert, damit
+  // einzelne Karten zusätzliche Quellen anhängen können:
+  //   FVAMap.init({ ..., attribution: FVAMap.DEFAULT_ATTRIBUTION + " · Daten: XY" })
   const DEFAULT_ATTRIBUTION =
     '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ' +
     '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">&copy; OpenMapTiles</a> ' +
@@ -62,20 +47,16 @@
   // Standard-Kartenausschnitt: ganz Baden-Württemberg (aus den WRW-
   // Landkreis-Flächen ermittelt, auf ca. 1m genau gerundet). JEDE Karte
   // startet hiermit – eine karte_*.html gibt bounds/center/zoom nur in
-  // Ausnahmefällen vor. Nur intern gebraucht (Default unten), deshalb kein
-  // API-Export.
+  // Ausnahmefällen vor.
   const BW_BOUNDS = [
     [7.45209, 47.48723],
-    [10.55530, 49.83647],
+    [10.5553, 49.83647],
   ];
 
-  /** Zeigt eine Fehlermeldung direkt im Karten-Container an (z. B. wenn WebGL
-   *  fehlt oder der Style nicht geladen werden kann). */
+  /** Zeigt eine Fehlermeldung direkt im Karten-Container an (z.B. wenn
+   *  WebGL fehlt oder der Style nicht geladen werden kann). */
   function showContainerError(container, message) {
-    const el =
-      typeof container === "string"
-        ? document.getElementById(container)
-        : container;
+    const el = typeof container === "string" ? document.getElementById(container) : container;
     if (!el) return;
     const box = document.createElement("div");
     box.className = "fva-map-error";
@@ -85,27 +66,36 @@
     el.appendChild(box);
   }
 
+  // =====================================================================
+  // 1. FVAMap.init – Karte aus der FVA-Basemap erzeugen
+  // =====================================================================
+
   /**
    * Erstellt eine MapLibre-Karte mit den gemeinsamen Grundeinstellungen.
-   * Fullscreen, gesperrte Rotation, Style-Fallback und die statische
-   * Attribution gelten IMMER (siehe Konvention oben) und sind bewusst
-   * keine Optionen.
+   * Fullscreen, gesperrte Rotation, Style-Fallback und statische
+   * Attribution gelten IMMER und sind bewusst KEINE Optionen – das erzwingt
+   * einheitliches Verhalten über alle karte_*.html hinweg.
    * @param {Object} options
    * @param {string} [options.container="map"]
-   * @param {[number,number][]} [options.bounds] – Standard: ganz Baden-Württemberg (BW_BOUNDS); i.d.R. NICHT überschreiben
-   * @param {[number,number]} [options.center] – Ausnahmefall: statt bounds mit center+zoom starten (nur zusammen mit zoom, gewinnt dann gegen bounds)
+   * @param {[number,number][]} [options.bounds] – Standard: ganz Baden-
+   *   Württemberg (BW_BOUNDS); i.d.R. NICHT überschreiben
+   * @param {[number,number]} [options.center] – Ausnahmefall: statt bounds
+   *   mit center+zoom starten (nur zusammen mit zoom, gewinnt dann gegen bounds)
    * @param {number} [options.zoom] – Ausnahmefall, nur zusammen mit center
-   * @param {string}  [options.ariaLabel] – Beschriftung des Karten-Containers für Screenreader
-   * @param {string}  [options.errorMessage] – Text bei fehlgeschlagener Initialisierung
-   * @param {string}  [options.attribution] – überschreibt DEFAULT_ATTRIBUTION komplett; eigene Quelle anhängen z.B. mit FVAMap.DEFAULT_ATTRIBUTION + " · Daten: ...". Leerstring/false blendet die Attribution aus (nur falls rechtlich unnötig).
+   * @param {string} [options.ariaLabel] – Beschriftung des Karten-Containers für Screenreader
+   * @param {string} [options.errorMessage] – Text bei fehlgeschlagener Initialisierung
+   * @param {string|false} [options.attribution] – überschreibt DEFAULT_ATTRIBUTION;
+   *   eigene Quelle anhängen z.B. mit FVAMap.DEFAULT_ATTRIBUTION + " · Daten: ...".
+   *   false/"" blendet die Attribution aus (nur falls rechtlich unnötig).
+   * @param {string} [options.cursor] – optionaler dauerhafter Cursor auf dem
+   *   Karten-Canvas (z.B. "crosshair" für eine Klick-zum-Abfragen-Karte wie
+   *   karte_eps.html); Standard: MapLibres eigene grab/pointer-Cursor.
    * @returns {maplibregl.Map}
    */
-  function create(options) {
+  function init(options) {
     const cfg = Object.assign(
       {
         container: "map",
-        // Standard = ganz Baden-Württemberg. center/zoom bleiben null und
-        // werden nur ausgewertet, wenn eine Karte sie ausdrücklich setzt.
         bounds: BW_BOUNDS,
         center: null,
         zoom: null,
@@ -113,6 +103,7 @@
         ariaLabel: "Interaktive Karte",
         errorMessage: null,
         attribution: DEFAULT_ATTRIBUTION,
+        cursor: null,
       },
       options || {}
     );
@@ -120,7 +111,7 @@
     const mapOptions = {
       container: cfg.container,
       style: PRIMARY_STYLE,
-      // Native (i)-Box aus - wir zeigen stattdessen einen festen Text
+      // Native (i)-Box aus – wir zeigen stattdessen einen festen Text
       // (siehe createAttributionControl unten), fest für jede Karte.
       attributionControl: false,
     };
@@ -145,14 +136,12 @@
     }
 
     // Springt nur ein, wenn das GANZE Style-Dokument beim initialen Laden
-    // nicht ladbar war (e.sourceId fehlt dann) - nicht bei einer einzelnen
+    // nicht ladbar war (e.sourceId fehlt dann) – nicht bei einer einzelnen
     // kaputten Kachel oder einer fachspezifischen Quelle, die eine
-    // karte_*.html selbst hinzufügt (die hat immer eine sourceId).
-    // Zusätzlich an styleLoaded gebunden: Sprite-/Glyph-Fehler melden sich
-    // ebenfalls ohne sourceId, können aber jederzeit während der Session
-    // auftreten (nicht nur beim initialen Laden) - ohne diese Absicherung
-    // würde ein solcher später Fehler den kompletten Style austauschen und
-    // damit alle von der Karte selbst hinzugefügten Layer/Quellen löschen.
+    // karte_*.html selbst hinzufügt (die hat immer eine sourceId). Auch an
+    // styleLoaded gebunden: ein Sprite-/Glyph-Fehler ohne sourceId könnte
+    // sonst noch Sitzungen später den kompletten Style austauschen und
+    // damit alle selbst hinzugefügten Layer/Quellen löschen.
     let fallbackApplied = false;
     let styleLoaded = false;
     map.once("load", () => {
@@ -168,17 +157,16 @@
       }
     });
 
-    // Barrierefreiheit: Container als Region mit Beschriftung auszeichnen.
     try {
       const c = map.getContainer();
       if (!c.hasAttribute("role")) c.setAttribute("role", "region");
       if (!c.hasAttribute("aria-label")) c.setAttribute("aria-label", cfg.ariaLabel);
+      if (cfg.cursor) c.classList.add("fva-map--cursor-" + cfg.cursor);
     } catch (e) {
       /* ignore */
     }
 
-    // Gilt fest für JEDE Karte - keine Optionen, die es pro Karte
-    // abschalten könnten.
+    // Gilt fest für JEDE Karte – keine Optionen, die es pro Karte abschalten könnten.
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
@@ -192,11 +180,7 @@
   }
 
   /** Eigene, dauerhaft sichtbare Attribution statt der interaktiven
-   *  MapLibre-(i)-Box (siehe attributionControl:false oben). Bewusst KEIN
-   *  "app-ctrl" (das gäbe den üblichen 10px-Rand wie Legende/Nav) - stattdessen
-   *  MapLibres eigene "maplibregl-ctrl-attrib"-Klasse (siehe
-   *  vendor/maplibre-gl.css), damit die Box bündig unten rechts sitzt statt
-   *  vom Kartenrand abzurücken. */
+   *  MapLibre-(i)-Box (siehe attributionControl:false oben). */
   function createAttributionControl(html) {
     let el;
     return {
@@ -212,125 +196,81 @@
     };
   }
 
-  /** Verhindert, dass Scroll-/Klick-Gesten in einem Overlay (z. B. Legende,
-   *  Timeline, Layer-Auswahl) die Karte darunter mitsteuern. */
+  /** Verhindert, dass Scroll-/Klick-Gesten in einem Overlay (Legende,
+   *  eigene Controls, Popup) die Karte darunter mitsteuern. */
   function stopMapPropagation(el) {
     if (!el) return;
-    [
-      "mousedown", "mouseup", "click", "dblclick", "wheel",
-      "touchstart", "touchmove", "contextmenu",
-    ].forEach((evt) => el.addEventListener(evt, (e) => e.stopPropagation()));
+    ["mousedown", "mouseup", "click", "dblclick", "wheel", "touchstart", "touchmove", "contextmenu"].forEach(
+      (evt) => el.addEventListener(evt, (e) => e.stopPropagation())
+    );
   }
 
   /**
-   * Baut aus einer Style-Tabelle (Kategorie -> {...Werte}, z. B. einer je
-   * Karte selbst definierten Konstante wie HAUPTZIELSETZUNG_STYLE) einen
-   * MapLibre-"match"-Ausdruck für EIN Paint-Property - erspart das manuelle
-   * Ausschreiben von ["match", ["get", feld], k1, v1, k2, v2, ..., fallback]
-   * in jeder karte_*.html. MapLibre selbst akzeptiert keine rohe Tabelle als
-   * Paint-Wert, nur dieses flache Array - die Umwandlung lässt sich nicht
-   * sparen, aber wenigstens nur einmal schreiben.
-   * "match" VERLANGT syntaktisch einen letzten Default-Wert (MapLibre lehnt
-   * den Style sonst mit "Expected an odd number of arguments" komplett ab,
-   * nicht nur die eine Kategorie) - fehlt fallback hier, wird deshalb
-   * automatisch der Wert des LETZTEN Tabellen-Eintrags genommen, statt dass
-   * jede Karte ihn selbst nochmal heraussuchen muss.
-   * Passt nur bei EXAKTER Gleichheit (wie "match" selbst) - braucht eine
-   * Karte einen Teilstring-Vergleich (z. B. baumart "Bannwald_Buche"
-   * enthält "Buche"), ist FVAMap.caseExpr(["in", ...], ...) die richtige
-   * Wahl, nicht diese Funktion.
+   * Baut aus einer Style-Tabelle (Kategorie -> {...Werte}) einen MapLibre-
+   * "match"-Ausdruck für EIN Paint-Property. "match" verlangt syntaktisch
+   * einen Default-Wert am Ende (sonst lehnt MapLibre den ganzen Style ab);
+   * fehlt fallback, wird automatisch der Wert des letzten Tabellen-
+   * Eintrags genommen.
    * @param {string} field - GeoJSON-Property, gegen die verglichen wird
-   * @param {Object} styleTable - z.B. {"Bestandesvitalität": {fillColor:"#FFAEB9", fillOpacity:0.5}, ...}
-   * @param {string} valueKey - welcher Wert aus jedem Tabellen-Eintrag genommen wird (z.B. "fillColor")
-   * @param {*} [fallback] - Wert für unbekannte/neue Kategorien; Standard: Wert des letzten Tabellen-Eintrags
-   * @returns {Array} fertiger MapLibre-Ausdruck, direkt als Paint-Wert nutzbar
+   * @param {Object} styleTable - z.B. {"Buche": {fill:"#..."}, "Fichte": {fill:"#..."}}
+   * @param {string} valueKey - welcher Wert aus jedem Eintrag genommen wird
+   * @param {*} [fallback]
+   * @returns {Array}
    */
   function matchExpr(field, styleTable, valueKey, fallback) {
     const entries = Object.entries(styleTable);
     const resolvedFallback = fallback !== undefined ? fallback : entries[entries.length - 1][1][valueKey];
-    return ["match", ["get", field],
-      ...entries.flatMap(([k, v]) => [k, v[valueKey]]),
-      resolvedFallback,
-    ];
+    return ["match", ["get", field], ...entries.flatMap(([k, v]) => [k, v[valueKey]]), resolvedFallback];
   }
 
-  /**
-   * Baut ["case", condition, valueIfTrue, valueIfFalse] - der allgemeine
-   * Baustein hinter hoverExpr() unten, aber auch für andere zweigeteilte
-   * Fälle nutzbar, z. B. ein Substring-Check statt exaktem Vergleich (dort,
-   * wo FVAMap.matchExpr wegen nicht-exakter Werte nicht passt).
-   * @param {Array} condition - fertiger MapLibre-Bedingungs-Ausdruck (z.B. ["in", "Buche", ["get","baumart"]])
-   * @param {*} valueIfTrue
-   * @param {*} valueIfFalse
-   * @returns {Array} fertiger MapLibre-Ausdruck, direkt als Paint-Wert nutzbar
-   */
+  /** Baut ["case", condition, valueIfTrue, valueIfFalse]. */
   function caseExpr(condition, valueIfTrue, valueIfFalse) {
     return ["case", condition, valueIfTrue, valueIfFalse];
   }
 
-  /**
-   * Baut den ["case", ["boolean", ["feature-state","hover"], false], ...]-
-   * Ausdruck, der in JEDER Karte für "Wert X bei Hover, sonst Wert Y"
-   * gebraucht wird (Radius/Strichstärke/-farbe etc.) - erspart das
-   * Ausschreiben in jedem Paint-Property einzeln. Dünner Wrapper um
-   * caseExpr() mit fest eingebauter Hover-Bedingung.
-   * @param {*} hoverValue - Wert, wenn feature-state.hover true ist
-   * @param {*} normalValue - Wert sonst
-   * @returns {Array} fertiger MapLibre-Ausdruck, direkt als Paint-Wert nutzbar
-   */
+  /** Baut den ["case", ["boolean", ["feature-state","hover"], false], ...]-
+   *  Ausdruck für "Wert X bei Hover, sonst Y" (Radius/Strichstärke/-farbe). */
   function hoverExpr(hoverValue, normalValue) {
     return caseExpr(["boolean", ["feature-state", "hover"], false], hoverValue, normalValue);
   }
 
-  // -------------------------------------------------------------------
-  // Legende – als echtes MapLibre-Control (map.addControl(...)), damit
-  // Positionierung/Abstand konsistent mit Navigation/Fullscreen erfolgt.
-  // KONVENTION: Legenden sitzen IMMER unten rechts - das erzwingt
-  // addLegend() direkt, es gibt bewusst keine Option dagegen.
-  // -------------------------------------------------------------------
+  // =====================================================================
+  // 2. FVAMap.addLegend – Legende unten rechts
+  // =====================================================================
 
   /**
    * Erzeugt eine Legende im gemeinsamen Basemap-Design und hängt sie unten
-   * rechts in die Karte ein. Unterstützt drei Inhalts-Arten (der Reihe nach
-   * geprüft): direktes HTML (`html`, für aufwändiger gestaltete Legenden),
-   * eine fertige Farb-/Label-Liste (`items`), oder eine Style-Tabelle
-   * (`styleTable` + `colorKey`) - dieselbe Tabelle, die auch schon
-   * FVAMap.matchExpr für die Paint-Ausdrücke verwendet (siehe
-   * karte_wrw.html/karte_level2.html) - `items` wird dann automatisch draus
-   * abgeleitet, statt dass jede Karte dasselbe
-   * `Object.entries(tabelle).map(([label,s]) => ({color:s[key], label}))`
-   * nochmal selbst schreibt.
-   *
-   * Immer einklappbar (keine Option, siehe Konvention oben). Auf
-   * kleinen Bildschirmen (<=600px) startet sie automatisch eingeklappt,
-   * damit man dort nicht nur Legende statt Karte sieht; sonst offen.
-   *
-   * @param {Object} map
+   * rechts in die Karte ein (feste Position, keine Option dagegen).
+   * Unterstützt drei Inhalts-Arten (der Reihe nach geprüft): fertiges HTML
+   * (`html`), eine Farb-/Label-Liste (`items`), oder eine Style-Tabelle
+   * (`styleTable` + `colorKey`, dieselbe Tabelle wie für FVAMap.matchExpr –
+   * `items` wird daraus automatisch abgeleitet).
+   * Immer einklappbar; auf kleinen Bildschirmen (<=600px) startet sie
+   * eingeklappt, sonst offen.
+   * @param {maplibregl.Map} map
    * @param {Object} opts
    * @param {string} opts.title
-   * @param {{color:string, label:string}[]} [opts.items]
-   * @param {Object} [opts.styleTable] – Alternative zu items: Tabelle wie bei
-   *   FVAMap.matchExpr (Kategorie -> {...Werte}); Reihenfolge der Objekt-Keys
-   *   bestimmt die Reihenfolge in der Legende
-   * @param {string} [opts.colorKey] – welcher Wert aus jedem styleTable-
-   *   Eintrag als Farbe genommen wird (z.B. "fillColor"), nur mit styleTable nötig
-   * @param {string} [opts.html] – alternative zu items/styleTable: fertiges HTML für den Inhalt
+   * @param {{color:string, label:string, shape?:"square"|"circle"|"ring"}[]} [opts.items] -
+   *   shape ist optional (Standard "square"); "circle"/"ring" lassen die
+   *   Legende wie echte Kartenpunkte aussehen (voller Punkt bzw. Punkt mit
+   *   weißer Mitte), siehe karte_borkenkaefer.html
+   * @param {Object} [opts.styleTable]
+   * @param {string} [opts.colorKey]
+   * @param {string} [opts.html]
    * @param {string} [opts.note] – optionaler Hinweistext unter der Legende
-   * @returns {Object} das MapLibre-Control, damit es bei Bedarf per
-   *   map.removeControl(...) wieder entfernt werden kann
+   * @returns {Object} das MapLibre-Control (für map.removeControl bei Bedarf)
    */
   function addLegend(map, opts) {
     const cfg = opts || {};
-    const items = cfg.items || (cfg.styleTable
-      ? Object.entries(cfg.styleTable).map(([label, s]) => ({ color: s[cfg.colorKey], label }))
-      : []);
+    const items =
+      cfg.items ||
+      (cfg.styleTable ? Object.entries(cfg.styleTable).map(([label, s]) => ({ color: s[cfg.colorKey], label })) : []);
     let box;
     const ctrl = {
       onAdd() {
         box = document.createElement("div");
-        // maplibregl-ctrl setzt pointer-events:auto zurück (die Ecken-Container
-        // haben pointer-events:none). Ohne diese Klasse würden Klicks durch die
-        // Legende auf die Karte "durchfallen".
+        // maplibregl-ctrl setzt pointer-events:auto zurück (Ecken-Container
+        // haben sonst pointer-events:none, Klicks fielen durch).
         box.className = "maplibregl-ctrl map-legend app-ctrl";
         stopMapPropagation(box);
 
@@ -338,8 +278,7 @@
         header.type = "button";
         header.className = "map-legend__header";
         header.innerHTML =
-          `<span>${cfg.title}</span>` +
-          '<span class="map-legend__chevron" aria-hidden="true">&#9662;</span>';
+          `<span>${cfg.title}</span>` + '<span class="map-legend__chevron" aria-hidden="true">&#9662;</span>';
         box.appendChild(header);
 
         const itemsWrap = document.createElement("div");
@@ -351,9 +290,16 @@
           items.forEach((item) => {
             const row = document.createElement("div");
             row.className = "map-legend__item";
+            // shape "square" (Standard, z.B. Flächen/Kategorien) | "circle"
+            // (voller Punkt, z.B. eine Falle) | "ring" (Punkt mit weißer
+            // Mitte, z.B. ein Brutbeobachtungsbaum) - für Legenden, die
+            // dieselbe Form wie die echten Kartenpunkte zeigen sollen
+            // (siehe karte_borkenkaefer.html).
+            const shape = item.shape || "square";
+            const swatchClass = "map-legend__swatch" + (shape !== "square" ? ` map-legend__swatch--${shape}` : "");
+            const swatchStyle = shape === "ring" ? `border-color:${item.color}` : `background:${item.color}`;
             row.innerHTML =
-              `<span class="map-legend__swatch" style="background:${item.color}"></span>` +
-              `<span>${item.label}</span>`;
+              `<span class="${swatchClass}" style="${swatchStyle}"></span>` + `<span>${item.label}</span>`;
             itemsWrap.appendChild(row);
           });
         }
@@ -367,10 +313,7 @@
 
         box.appendChild(itemsWrap);
 
-        // Fester Standard (keine Option): auf kleinen Screens eingeklappt
-        // starten, sonst offen. 600px ~ Smartphone-Breite.
-        const startCollapsed =
-          !!(global.matchMedia && global.matchMedia("(max-width: 600px)").matches);
+        const startCollapsed = !!(global.matchMedia && global.matchMedia("(max-width: 600px)").matches);
         header.setAttribute("aria-expanded", String(!startCollapsed));
         if (startCollapsed) box.classList.add("is-collapsed");
 
@@ -389,79 +332,286 @@
     return ctrl;
   }
 
-  // -------------------------------------------------------------------
-  // Layer-Interaktion – Hover-Hervorhebung + Cursor, für jeden
-  // Layer-Typ (fill, line, circle).
-  // -------------------------------------------------------------------
+  // =====================================================================
+  // Fullscreen – FVAMap.init() schaltet den nativen Browser-Fullscreen auf
+  // map.getContainer(). Alles, was NICHT Nachfahre dieses Containers ist,
+  // wird während Fullscreen unsichtbar (die Fullscreen-API zeigt nur den
+  // Ast des fullscreenen Elements) – deshalb hängen lightbox/popup ihr
+  // Overlay in den Karten-Container statt in body, und ein offenes Overlay
+  // wird beim Fullscreen-Wechsel geschlossen (sonst bleiben feste
+  // Pixelmaße, z.B. eines Plotly-Charts, von vor dem Wechsel hängen).
+  // =====================================================================
+  function onFullscreenChange(handler) {
+    ["fullscreenchange", "webkitfullscreenchange"].forEach((evt) => document.addEventListener(evt, handler));
+  }
+
+  // =====================================================================
+  // 3. FVAMap.popup – zentriertes Popup (Modal) mit Titel/Tabs, Export,
+  //    Schließen. Ersetzt ein an einen geografischen Punkt verankertes
+  //    maplibregl.Popup: der Inhalt (Bilder, Grafiken, Tabellen) ist oft zu
+  //    breit/hoch dafür, und ein Anker würde je nach Klickort/
+  //    Kartenausschnitt an wechselnder Stelle aufklappen. Einmal pro Seite
+  //    initialisiert (ensurePopup), Inhalt/Header werden bei jedem open()
+  //    ausgetauscht.
+  // =====================================================================
+
+  function ensurePopup(map) {
+    let overlay = document.getElementById("fva-modal-overlay");
+    if (overlay) return overlay;
+
+    overlay = document.createElement("div");
+    overlay.id = "fva-modal-overlay";
+    overlay.className = "fva-modal-overlay";
+    overlay.innerHTML =
+      '<div class="fva-modal" role="dialog" aria-modal="true">' +
+      '<div class="fva-modal__header">' +
+      '<span class="fva-modal__title"></span>' +
+      '<span class="fva-modal__header-extra"></span>' +
+      '<button type="button" class="fva-modal__export">Export</button>' +
+      '<button type="button" class="fva-modal__close" aria-label="Schließen"></button>' +
+      "</div>" +
+      '<div class="fva-modal__body"></div>' +
+      "</div>";
+    map.getContainer().appendChild(overlay);
+
+    function close() {
+      if (!overlay.classList.contains("is-open")) return;
+      overlay.classList.remove("is-open");
+      overlay.querySelector(".fva-modal__body").innerHTML = "";
+      if (overlay._fvaOnClose) overlay._fvaOnClose();
+    }
+    overlay.querySelector(".fva-modal__close").addEventListener("click", close);
+    overlay.querySelector(".fva-modal__export").addEventListener("click", () => exportPopupPng(overlay));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(); // Klick auf den Hintergrund, nicht auf die Popup-Box
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
+    });
+    onFullscreenChange(close);
+    overlay._fvaClose = close;
+    return overlay;
+  }
 
   /**
-   * Hebt das jeweils überfahrene Feature eines Layers per
-   * feature-state { hover: true } hervor und setzt den Zeiger-Cursor.
-   * Die Quelle braucht stabile Feature-Ids (generateId:true oder echte
-   * ids); die paint-Ausdrücke des Layers werten ["feature-state","hover"] aus.
-   *
-   * @param {maplibregl.Map} map
-   * @param {string} layerId
-   * @param {string} sourceId
-   * @returns {{ get: () => (number|string|null), clear: () => void }}
+   * Weitet einen zu schmalen/niedrigen Export-Ausschnitt kurz auf seine
+   * tatsächliche Inhaltsgröße auf, statt ihn wie im Live-Popup seitlich
+   * scrollbar zu lassen (.fva-scroll-x, z.B. ein Chart/SVG mit eigener
+   * Mindestbreite) oder vertikal abzuschneiden (.fva-modal__body,
+   * overflow:auto). Eine Box mit overflow:auto/-hidden "schluckt" den
+   * Overflow ihrer Kinder nach außen - ihre EIGENE scrollWidth/-Height
+   * verrät das nicht (bleibt gleich clientWidth/-Height). Deshalb reicht es
+   * nicht, nur den eigentlichen Übeltäter (.fva-scroll-x) zu verbreitern:
+   * jede Box AUF DEM WEG dorthin bis (und mit) target - die ja selbst
+   * gerade wegen dieses Kindes überläuft - muss ihre eigene Begrenzung
+   * ebenfalls loswerden, sonst schneidet sie den jetzt breiteren Nachfahren
+   * einfach wieder ab.
+   * Für die BREITE reicht "width:auto" auf den Vorfahren dafür NICHT immer
+   * (nur ein Flex-/Grid-Item schrumpft/wächst darüber auf seinen Inhalt -
+   * ein ganz normales Block-Element wie z.B. karte_eps.html's #gantt-panel
+   * bliebe bei width:auto weiter exakt so breit wie SEIN Elternelement,
+   * unabhängig vom jetzt breiteren Kind). Deshalb bekommt hier JEDE Ebene
+   * von innen nach außen ihre eigene explizite Pixel-Breite (ihre jeweils
+   * AKTUELLE scrollWidth, nachdem das jeweilige Kind schon verbreitert
+   * wurde - kaskadiert so sauber nach oben). Für die HÖHE reicht
+   * "height:auto" dagegen aus - Blockauto-Höhe folgt schon von selbst dem
+   * Inhalt, das ist dort gerade der CSS-Normalfall.
+   * Gibt eine restore()-Funktion zurück, die alle Änderungen exakt
+   * rückgängig macht (auch wenn vorher kein style-Attribut da war).
    */
-  function enableHoverState(map, layerId, sourceId) {
-    let hoveredId = null;
-
-    function clear() {
-      if (hoveredId !== null) {
-        map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false });
-        hoveredId = null;
-      }
+  function widenForExport(target) {
+    const touched = [];
+    function unclip(el) {
+      if (touched.some(([done]) => done === el)) return;
+      touched.push([el, el.getAttribute("style")]);
+      el.style.overflow = "visible";
+      el.style.maxWidth = "none";
+      el.style.maxHeight = "none";
+      el.style.width = el.scrollWidth + "px";
+      el.style.height = "auto";
     }
 
-    map.on("mousemove", layerId, (e) => {
-      if (!e.features.length) return;
-      map.getCanvas().style.cursor = "pointer";
-      const id = e.features[0].id;
-      if (hoveredId !== null && hoveredId !== id) {
-        map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false });
+    target.querySelectorAll(".fva-scroll-x").forEach((scroller) => {
+      if (scroller.scrollWidth <= scroller.clientWidth) return;
+      unclip(scroller);
+      for (let el = scroller.parentElement; el; el = el.parentElement) {
+        unclip(el); // el.scrollWidth hier IMMER erst NACH dem jeweiligen Kind messen
+        if (el === target) break;
       }
-      hoveredId = id;
-      map.setFeatureState({ source: sourceId, id: id }, { hover: true });
     });
 
-    map.on("mouseleave", layerId, () => {
-      map.getCanvas().style.cursor = "";
-      clear();
+    // Kann auch ganz ohne .fva-scroll-x zu hoch für seine max-height sein
+    // (z.B. ein einfaches, aber langes Popup) - dann fehlt oben der
+    // Auslöser über einen Scroller, hier zusätzlich direkt behandeln.
+    target.querySelectorAll(".fva-modal__body").forEach((body) => {
+      if (body.scrollHeight > body.clientHeight || body.scrollWidth > body.clientWidth) {
+        unclip(body);
+        unclip(target);
+      }
     });
+    if (target.scrollHeight > target.clientHeight || target.scrollWidth > target.clientWidth) unclip(target);
 
-    return { get: () => hoveredId, clear: clear };
+    return function restore() {
+      touched.forEach(([el, style]) => {
+        if (style === null) el.removeAttribute("style");
+        else el.setAttribute("style", style);
+      });
+    };
   }
 
-  // -------------------------------------------------------------------
-  // Fullscreen: FVAMap.create() schaltet den nativen Browser-Fullscreen auf
-  // map.getContainer() (siehe FullscreenControl). Alles, was NICHT
-  // Nachfahre dieses Containers ist - z.B. ein an document.body gehängtes
-  // Overlay - wird während Fullscreen unsichtbar (die Fullscreen-API zeigt
-  // nur den Ast des fullscreenen Elements). initImageLightbox()/openModal()
-  // hängen ihre Overlays deshalb in den Karten-Container statt in body.
-  // Zusätzlich: ein offenes Overlay beim Fullscreen-Wechsel schließen, sonst
-  // bleiben Plotly-Chart-Maße (feste Pixelbreite/-höhe aus der Container-
-  // Größe VOR dem Wechsel) hängen und wirken hinterher verzerrt/zu groß.
-  // Als FVAMap.onFullscreenChange exportiert, weil karte_eps.html dasselbe
-  // für sein eigenes Modal braucht, siehe dort.
-  // -------------------------------------------------------------------
-  function onFullscreenChange(handler) {
-    ["fullscreenchange", "webkitfullscreenchange"].forEach((evt) =>
-      document.addEventListener(evt, handler)
-    );
+  /** Fotografiert das Popup bis auf Export-/Schließen-Button. Erfordert
+   *  vendor/html-to-image.js, geladen vom Aufrufer – ohne das nur eine
+   *  Konsolenmeldung, kein harter Fehler. */
+  async function exportPopupPng(overlay) {
+    if (typeof htmlToImage === "undefined") {
+      console.error("[FVAMap] html-to-image nicht geladen - PNG-Export nicht möglich.");
+      return;
+    }
+    const modalEl = overlay.querySelector(".fva-modal");
+    const exportBtn = overlay.querySelector(".fva-modal__export");
+    const closeBtn = overlay.querySelector(".fva-modal__close");
+    const originalText = exportBtn.textContent;
+
+    // Standard: das ganze Popup fotografieren. Eine Karte mit mehreren
+    // Tabs im Popup (z.B. Grafik/Tabelle) kann per opts.exportTarget nur
+    // den aktiven Tab-Inhalt liefern, siehe FVAMap.popup.open.
+    const target = overlay._fvaExportTarget ? overlay._fvaExportTarget(modalEl) : modalEl;
+    if (!target) return;
+
+    exportBtn.disabled = true;
+    exportBtn.textContent = "…";
+    exportBtn.style.visibility = "hidden";
+    closeBtn.style.visibility = "hidden";
+    const restoreWidth = widenForExport(target);
+    try {
+      // Hook z.B. für einen Chart, der sein eigenes Redraw braucht, nachdem
+      // widenForExport() oben seinen Container verbreitert hat (Plotly
+      // reagiert auf eine per CSS geänderte Containergröße nicht von
+      // selbst synchron genug) - siehe beforeExport in karte_level2.html.
+      if (overlay._fvaBeforeExport) await overlay._fvaBeforeExport();
+      const dataUrl = await htmlToImage.toPng(
+        target,
+        Object.assign({ pixelRatio: 2, backgroundColor: "#ffffff" }, overlay._fvaExportOptions)
+      );
+      const exportName = typeof overlay._fvaExportName === "function" ? overlay._fvaExportName() : overlay._fvaExportName;
+      const a = document.createElement("a");
+      a.download = (exportName || "Export") + ".png";
+      a.href = dataUrl;
+      a.click();
+    } catch (err) {
+      console.error("[FVAMap] PNG-Export fehlgeschlagen:", err);
+    } finally {
+      restoreWidth();
+      if (overlay._fvaAfterExport) await overlay._fvaAfterExport();
+      exportBtn.disabled = false;
+      exportBtn.textContent = originalText;
+      exportBtn.style.visibility = "";
+      closeBtn.style.visibility = "";
+    }
   }
 
-  // -------------------------------------------------------------------
-  // Bild-Lightbox (Klick auf ein Popup-Bild -> vergrößerte Ansicht)
-  // Einmal pro Seite initialisieren; reagiert per Event-Delegation auf
-  // JEDES <img class="fva-popup__img" data-full="..."> im Dokument, auch
-  // wenn Popups dynamisch nachgeladen werden.
-  // @param {maplibregl.Map} map - Container, in den die Lightbox gehängt
-  //   wird (siehe Fullscreen-Hinweis oben).
-  // -------------------------------------------------------------------
-  function initImageLightbox(map) {
+  /**
+   * Öffnet das zentrierte Popup mit content als Body-Inhalt. Header (Titel
+   * bzw. eigener headerLeft-Inhalt wie Tabs, optional headerRight, Export,
+   * Schließen) baut FVAMap selbst – der Aufrufer liefert nur den Inhalt.
+   * @param {maplibregl.Map} map
+   * @param {HTMLElement} content
+   * @param {Object} [opts]
+   * @param {string} [opts.title] - links im Header; ignoriert, wenn headerLeft gesetzt ist
+   * @param {HTMLElement} [opts.headerLeft] - ersetzt den Titel-Bereich (flex:1),
+   *   z.B. für Tabs (siehe karte_eps.html); dasselbe Element kann über
+   *   mehrere open()-Aufrufe wiederverwendet werden (Klick-Handler bleiben erhalten)
+   * @param {HTMLElement} [opts.headerRight] - zusätzliches Control vor dem
+   *   Export-Button, z.B. eine Jahresauswahl (siehe karte_eps.html)
+   * @param {string|(() => string)} [opts.exportName] - Dateiname (ohne .png),
+   *   Standard "Export". Als Funktion, wenn er vom Zustand zum Export-
+   *   Zeitpunkt abhängt (z.B. vom gerade aktiven Tab, siehe karte_eps.html)
+   *   statt vom Zustand beim open()-Aufruf.
+   * @param {(modalEl:HTMLElement) => HTMLElement} [opts.exportTarget] - welches
+   *   Element fotografiert wird; Standard: das ganze Popup. Für Karten mit
+   *   mehreren Tabs im Popup z.B. `() => document.getElementById('aktiver-tab')`
+   * @param {Object} [opts.exportOptions] - zusätzliche/überschreibende Optionen
+   *   für htmlToImage.toPng (z.B. `{filter: (node) => node.id !== 'spinner'}`,
+   *   um ein noch sichtbares Lade-Overlay aus dem Export auszuschließen)
+   * @param {number} [opts.widthPercent] - Popup-Breite als Anteil der
+   *   Kartenbreite; ohne Angabe richtet sich die Breite nach dem Inhalt (bis max-width:96vw)
+   * @param {number} [opts.heightPercent] - wie widthPercent, für die Höhe (bis max-height:92vh)
+   * @param {() => (void|Promise<void>)} [opts.beforeExport] - läuft direkt vor
+   *   der Aufnahme, NACHDEM FVAMap.popup bereits automatisch jeden zu
+   *   schmalen .fva-modal__body-/.fva-scroll-x-Container auf seine
+   *   tatsächliche Inhaltsbreite verbreitert hat (siehe widenForExport oben,
+   *   kein Scrollbalken mehr im Export) - nur noch für Inhalte nötig, die
+   *   zusätzlich selbst auf eine Containergrößenänderung reagieren müssen,
+   *   z.B. ein Plotly-Chart (siehe karte_level2.html)
+   * @param {() => (void|Promise<void>)} [opts.afterExport] - läuft NACH dem
+   *   automatischen Zurücksetzen der Breite (s.o.), macht nur noch einen
+   *   eigenen beforeExport-Eingriff rückgängig
+   * @param {() => void} [opts.onClose] - läuft, wenn das Popup geschlossen wird
+   *   (Klick auf X/Hintergrund, Escape, Fullscreen-Wechsel) – z.B. um einen
+   *   Tooltip mitzuschließen
+   * @returns {{ close: () => void }}
+   */
+  function openPopup(map, content, opts) {
+    opts = opts || {};
+    const overlay = ensurePopup(map);
+    const modalEl = overlay.querySelector(".fva-modal");
+    const title = overlay.querySelector(".fva-modal__title");
+    const headerExtra = overlay.querySelector(".fva-modal__header-extra");
+
+    title.innerHTML = "";
+    title.hidden = true;
+    headerExtra.innerHTML = "";
+    headerExtra.hidden = true;
+
+    if (opts.headerLeft) {
+      title.hidden = false;
+      title.appendChild(opts.headerLeft);
+    } else if (opts.title) {
+      title.hidden = false;
+      title.textContent = opts.title;
+    }
+    if (opts.headerRight) {
+      headerExtra.hidden = false;
+      headerExtra.appendChild(opts.headerRight);
+    }
+
+    overlay._fvaExportName = opts.exportName || opts.title || "Export";
+    overlay._fvaExportTarget = opts.exportTarget || null;
+    overlay._fvaExportOptions = opts.exportOptions || null;
+    overlay._fvaBeforeExport = opts.beforeExport || null;
+    overlay._fvaAfterExport = opts.afterExport || null;
+    overlay._fvaOnClose = opts.onClose || null;
+
+    const mapEl = map.getContainer();
+    modalEl.style.width = opts.widthPercent ? Math.round(mapEl.clientWidth * opts.widthPercent) + "px" : "";
+    modalEl.style.height = opts.heightPercent ? Math.round(mapEl.clientHeight * opts.heightPercent) + "px" : "";
+
+    const body = overlay.querySelector(".fva-modal__body");
+    body.innerHTML = "";
+    body.appendChild(content);
+
+    overlay.classList.add("is-open");
+    return { close: overlay._fvaClose };
+  }
+
+  /** true, solange das Popup gerade offen ist (z.B. um beim erneuten
+   *  Rendern desselben Inhalts – etwa nach einer Filter-Änderung – zu
+   *  unterscheiden "frischer Klick" vs. "Inhalt nur aktualisiert"). */
+  function isPopupOpen() {
+    const overlay = document.getElementById("fva-modal-overlay");
+    return !!overlay && overlay.classList.contains("is-open");
+  }
+
+  // =====================================================================
+  // 4. FVAMap.lightbox – Klick auf ein Popup-Bild -> vergrößerte Ansicht.
+  //    Einmal pro Seite initialisieren; reagiert per Event-Delegation auf
+  //    JEDES <img class="fva-popup__img" data-full="..."> im Dokument,
+  //    auch wenn Popup-Inhalte dynamisch nachgeladen werden.
+  // =====================================================================
+
+  /** @param {maplibregl.Map} map - Container, in den die Lightbox gehängt
+   *   wird (siehe Fullscreen-Hinweis oben). */
+  function initLightbox(map) {
     if (document.getElementById("fva-lightbox")) return; // nur einmal initialisieren
 
     const box = document.createElement("div");
@@ -500,20 +650,59 @@
     });
 
     box.addEventListener("click", close);
-
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && box.classList.contains("is-open")) close();
     });
-
     onFullscreenChange(close);
   }
 
-  // -------------------------------------------------------------------
-  // Hover-Tooltip
-  // -------------------------------------------------------------------
+  // =====================================================================
+  // 5. FVAMap.hover – Feature-Hervorhebung (feature-state) + Cursor, sowie
+  //    ein leichtgewichtiges Hover-Tooltip-Element.
+  // =====================================================================
 
-  /** Erstellt ein einfaches Hover-Tooltip-Element und gibt Steuerfunktionen zurück.
-   *  show(content, point, { html }) – html:true interpretiert content als HTML. */
+  /**
+   * Hebt das überfahrene Feature eines Layers per feature-state
+   * {hover:true} hervor und setzt den Zeiger-Cursor. Die Quelle braucht
+   * stabile Feature-Ids (generateId:true oder echte ids); die paint-
+   * Ausdrücke des Layers werten ["feature-state","hover"] aus (siehe
+   * FVAMap.hoverExpr).
+   * @param {maplibregl.Map} map
+   * @param {string} layerId
+   * @param {string} sourceId
+   * @returns {{ get: () => (number|string|null), clear: () => void }}
+   */
+  function enableHover(map, layerId, sourceId) {
+    let hoveredId = null;
+
+    function clear() {
+      if (hoveredId !== null) {
+        map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false });
+        hoveredId = null;
+      }
+    }
+
+    map.on("mousemove", layerId, (e) => {
+      if (!e.features.length) return;
+      map.getCanvas().style.cursor = "pointer";
+      const id = e.features[0].id;
+      if (hoveredId !== null && hoveredId !== id) {
+        map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false });
+      }
+      hoveredId = id;
+      map.setFeatureState({ source: sourceId, id: id }, { hover: true });
+    });
+
+    map.on("mouseleave", layerId, () => {
+      map.getCanvas().style.cursor = "";
+      clear();
+    });
+
+    return { get: () => hoveredId, clear: clear };
+  }
+
+  /** Erstellt ein Hover-Tooltip-Element und gibt Steuerfunktionen zurück.
+   *  show(content, point, {html}) – html:true interpretiert content als HTML. */
   function createHoverTooltip(map) {
     const el = document.createElement("div");
     el.className = "fva-tooltip";
@@ -539,168 +728,20 @@
   }
 
   // -------------------------------------------------------------------
-  // Zentriertes Modal (fixer Viewport-Overlay, IMMER mittig) - für
-  // Popup-Inhalte, die zu breit/hoch für ein normales maplibregl.Popup
-  // taugen (Bilder, Charts). Ein map.Popup+setLngLat() zeigt IMMER an
-  // einem geografischen Punkt und springt damit je nach Klickort/
-  // Kartenausschnitt an eine andere Stelle - für so einen breiten Inhalt
-  // störend.
-  // Fester Header mit optionalem Titel links, Export + Schließen-X rechts -
-  // JEDES Modal sieht so gleich aus, der Aufrufer liefert nur noch den
-  // Body-Inhalt (siehe karte_wrw.html/karte_level2.html). Export macht per
-  // html-to-image (muss der Aufrufer laden, siehe dortige <script>-Tags) ein
-  // PNG von allem außer den beiden Header-Buttons - dafür werden die beim
-  // Export kurz unsichtbar geschaltet (nicht aus dem DOM entfernt, damit
-  // sich am Layout währenddessen nichts verschiebt).
-  // Einmal pro Seite initialisiert (wie initImageLightbox oben), Titel/
-  // Inhalt werden bei jedem open() ausgetauscht.
-  // -------------------------------------------------------------------
-  function ensureModal(map) {
-    let overlay = document.getElementById("fva-modal-overlay");
-    if (overlay) return overlay;
-
-    overlay = document.createElement("div");
-    overlay.id = "fva-modal-overlay";
-    overlay.className = "fva-modal-overlay";
-    overlay.innerHTML =
-      '<div class="fva-modal" role="dialog" aria-modal="true">' +
-      '<div class="fva-modal__header">' +
-      '<span class="fva-modal__title"></span>' +
-      '<button type="button" class="fva-modal__export">Export</button>' +
-      '<button type="button" class="fva-modal__close" aria-label="Schließen"></button>' +
-      "</div>" +
-      '<div class="fva-modal__body"></div>' +
-      "</div>";
-    map.getContainer().appendChild(overlay);
-
-    function close() {
-      overlay.classList.remove("is-open");
-      overlay.querySelector(".fva-modal__body").innerHTML = "";
-    }
-    overlay.querySelector(".fva-modal__close").addEventListener("click", close);
-    overlay.querySelector(".fva-modal__export").addEventListener("click", () => exportModalPng(overlay));
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close(); // Klick auf den Hintergrund, nicht auf die Modal-Box
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
-    });
-    onFullscreenChange(close);
-    overlay._fvaClose = close;
-    return overlay;
-  }
-
-  /** Fotografiert das ganze Modal bis auf Export-/Schließen-Button (siehe
-   *  Kommentar oben). Erfordert vendor/html-to-image.js, geladen vom
-   *  Aufrufer - ohne das nur eine Konsolenmeldung, kein harter Fehler. */
-  async function exportModalPng(overlay) {
-    if (typeof htmlToImage === "undefined") {
-      console.error("[FVAMap] html-to-image nicht geladen - PNG-Export nicht möglich.");
-      return;
-    }
-    const modal = overlay.querySelector(".fva-modal");
-    const exportBtn = overlay.querySelector(".fva-modal__export");
-    const closeBtn = overlay.querySelector(".fva-modal__close");
-    const originalText = exportBtn.textContent;
-
-    exportBtn.disabled = true;
-    exportBtn.textContent = "…";
-    exportBtn.style.visibility = "hidden";
-    closeBtn.style.visibility = "hidden";
-    try {
-      // Hook für Inhalte mit eigenem Scroll-Bereich (z.B. ein Plotly-Chart
-      // in .fva-scroll-x, siehe karte_level2.html): html-to-image bemisst
-      // die Export-Canvas am clientWidth des Modals - was per overflow-x nur
-      // scrollbar (nicht wirklich sichtbar) ist, würde sonst abgeschnitten.
-      // beforeExport() bekommt hier die Chance, so einen Inhalt auf die
-      // tatsächlich verfügbare (schmalere) Breite zurückzuschrumpfen, statt
-      // dass wir hier generisch versuchen müssten, das Modal künstlich zu
-      // verbreitern.
-      if (overlay._fvaBeforeExport) await overlay._fvaBeforeExport();
-      const dataUrl = await htmlToImage.toPng(modal, { pixelRatio: 2, backgroundColor: "#ffffff" });
-      const a = document.createElement("a");
-      a.download = (overlay._fvaExportName || "Export") + ".png";
-      a.href = dataUrl;
-      a.click();
-    } catch (err) {
-      console.error("[FVAMap] PNG-Export fehlgeschlagen:", err);
-    } finally {
-      if (overlay._fvaAfterExport) await overlay._fvaAfterExport();
-      exportBtn.disabled = false;
-      exportBtn.textContent = originalText;
-      exportBtn.style.visibility = "";
-      closeBtn.style.visibility = "";
-    }
-  }
-
-  /**
-   * Öffnet ein zentriertes Modal mit content als Body-Inhalt. Header (Titel +
-   * Export + Schließen) baut FVAMap selbst - der Aufrufer liefert nur den
-   * Inhalt (üblicherweise ein .fva-popup__body, siehe
-   * karte_wrw.html/karte_level2.html), keinen eigenen Header. Auch die
-   * Größe des Modals (widthPercent/heightPercent) ist Sache dieser Funktion,
-   * nicht des Aufrufers - eine karte_*.html setzt selbst keine Breite/Höhe
-   * auf ihren content, siehe karte_level2.html (braucht ein großes Modal für
-   * die Wasserhaushalts-Grafik, misst danach per content.parentElement die
-   * tatsächlich zugeteilte Größe für die eigene Grafik-Berechnung).
-   * @param {maplibregl.Map} map - Container, in den das Modal gehängt wird
-   *   (siehe Fullscreen-Hinweis über initImageLightbox oben).
-   * @param {HTMLElement} content
-   * @param {Object} [opts]
-   * @param {string} [opts.title] - links im Header, weggelassen wenn leer
-   * @param {string} [opts.exportName] - Dateiname (ohne .png) für den
-   *   PNG-Export, Standard "Export"
-   * @param {number} [opts.widthPercent] - Modal-Breite als Anteil der
-   *   Kartenbreite (z.B. 0.9 für 90%); ohne Angabe richtet sich die Breite
-   *   nach dem Inhalt (bis max-width:96vw, siehe basemap.css)
-   * @param {number} [opts.heightPercent] - wie widthPercent, für die Höhe
-   *   (bis max-height:92vh)
-   * @param {() => (void|Promise<void>)} [opts.beforeExport] - läuft direkt vor
-   *   der Aufnahme, z.B. um einen scrollbaren Inhalt (.fva-scroll-x) auf
-   *   die sichtbare Breite zu schrumpfen
-   * @param {() => (void|Promise<void>)} [opts.afterExport] - macht das nach
-   *   der Aufnahme wieder rückgängig, läuft auch bei einem fehlgeschlagenen
-   *   Export
-   * @returns {{ close: () => void }}
-   */
-  function openModal(map, content, opts) {
-    opts = opts || {};
-    const overlay = ensureModal(map);
-    const modal = overlay.querySelector(".fva-modal");
-    const title = overlay.querySelector(".fva-modal__title");
-    title.textContent = opts.title || "";
-    title.hidden = !opts.title;
-    overlay._fvaExportName = opts.exportName || opts.title || "Export";
-    overlay._fvaBeforeExport = opts.beforeExport || null;
-    overlay._fvaAfterExport = opts.afterExport || null;
-    const mapEl = map.getContainer();
-    modal.style.width = opts.widthPercent ? Math.round(mapEl.clientWidth * opts.widthPercent) + "px" : "";
-    modal.style.height = opts.heightPercent ? Math.round(mapEl.clientHeight * opts.heightPercent) + "px" : "";
-    const body = overlay.querySelector(".fva-modal__body");
-    body.innerHTML = "";
-    body.appendChild(content);
-    overlay.classList.add("is-open");
-    return { close: overlay._fvaClose };
-  }
-
-  // -------------------------------------------------------------------
   // Export
   // -------------------------------------------------------------------
 
-  const api = {
+  global.FVAMap = {
     DEFAULT_ATTRIBUTION,
-    create,
+    init,
+    addLegend,
+    popup: { open: openPopup, isOpen: isPopupOpen },
+    lightbox: { init: initLightbox },
+    hover: { enable: enableHover, tooltip: createHoverTooltip },
     stopMapPropagation,
     matchExpr,
     caseExpr,
     hoverExpr,
-    addLegend,
-    enableHoverState,
     onFullscreenChange,
-    initImageLightbox,
-    openModal,
-    createHoverTooltip,
   };
-
-  global.FVAMap = api;
 })(window);

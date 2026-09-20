@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Borkenkäfermonitoring – Karte</title>
+
+  <link rel="stylesheet" href="../vendor/maplibre-gl.css" />
+  <link rel="stylesheet" href="../base/basemap.css" />
+</head>
+<body>
+  <div id="map" class="fva-map"></div>
+
+  <script src="../vendor/maplibre-gl.js"></script>
+  <script src="../base/basemap.js"></script>
+  <!-- Nur für den PNG-Export im Standort-Popup (siehe FVAMap.popup.open). -->
+  <script src="../vendor/html-to-image.js"></script>
+  <script>
+    /**
+     * Borkenkäfermonitoring
+     * -----------------------------------------------------------------
+     * 34 Fallenstandorte in Baden-Württemberg und Rheinland-Pfalz. Klick-
+     * Popup zeigt die von der FVA veröffentlichten Fangzahlen-/
+     * Brutentwicklungs-Grafiken (PNG, direkt von fva-bw.de eingebunden,
+     * siehe IMG_BASE_URL – dieselben Bilder wie auf
+     * https://www.fva-bw.de/daten-tools/monitoring/borkenkaefermonitoring/daten).
+     *
+     * WICHTIG - Koordinaten: fva-bw.de veröffentlicht für diese Standorte
+     * KEINE Koordinatentabelle/API - nur Namen, Höhenlage und zwei
+     * statische Grafiken ("Gradient_plus_Karte_BW/RLP_2026.png") mit den
+     * Standorten als Punkte auf einer BW/RLP-Umrisskarte. Die Koordinaten
+     * in data/borkenkaefer_standorte.geojson kommen deshalb NICHT direkt
+     * von der FVA, sondern wurden in zwei Schritten angenähert:
+     *   1. Namens-Geocoding (OpenStreetMap/Nominatim) als erste Schätzung.
+     *   2. Für 28 der 34 Standorte zusätzlich mit den beiden Gradient-PNGs
+     *      abgeglichen: Kartenausschnitt per Landmassen-Silhouette (BW/RLP-
+     *      Umriss) georeferenziert, die farbigen Standort-Punkte im Bild
+     *      per Farberkennung lokalisiert, und jeder Standort dem nächsten
+     *      Bildpunkt zugeordnet (Details siehe Commit-Historie/Chat) - das
+     *      ist selbst noch kein Vermessungsergebnis, aber deutlich näher an
+     *      der tatsächlichen FVA-Darstellung als reines Namens-Geocoding.
+     * Die restlichen 6 Standorte (Höhengradient Freiburg–Feldberg) sind nur
+     * im kleinen Höhenprofil-Chart einzeln erkennbar, nicht als eigene
+     * Punkte auf der Umrisskarte (bei diesem Maßstab nicht unterscheidbar)
+     * - bleiben beim reinen Namenstreffer, einer davon (Langenbach) ohne
+     * Namenstreffer, aus den Nachbarstandorten interpoliert.
+     * Alle noch unsicheren Standorte tragen properties.standort_hinweis
+     * (siehe Popup-Hinweis unten) - vor Veröffentlichung mit echten
+     * FVA-Koordinaten zu ersetzen, falls verfügbar.
+     * -----------------------------------------------------------------
+     */
+
+    // 1. Filepaths -----------------------------------------------------------
+    const STANDORTE_URL = "./data/borkenkaefer_standorte.geojson";
+    // Die Grafiken liegen nur auf fva-bw.de (nicht in diesem Repo gespiegelt) -
+    // Dateiname enthält das Jahr ("_2026_"), muss bei Jahreswechsel mit den
+    // tatsächlichen Dateinamen der FVA-Seite aktualisiert werden (siehe
+    // data/borkenkaefer_standorte.geojson, properties.bilder).
+    const IMG_BASE_URL = "https://www.fva-bw.de/fileadmin/scripts/monitoring/ws/borkenkaefer/grafik_2026/";
+
+    // 2. Legende ---------------------------------------------------------------
+    // Farben/Formen 1:1 aus der Legende von fva-bw.de übernommen (siehe
+    // "Gradient_plus_Karte_BW_2026.png"): Farbe = Art, volle Punkte = Falle,
+    // Punkte mit weißer Mitte = Brutbeobachtungsbaum. Die FVA-Grafik kennt
+    // zusätzlich noch einen gelben Ring für "FVA-Wetterstation" - dazu haben
+    // wir keine pro-Standort-Daten (stand nicht im scrapbaren Seitentext),
+    // deshalb bewusst NICHT nachgebildet, um nichts zu erfinden.
+    const ART_STYLE = {
+      buchdrucker: { color: "#C00000", label: "Buchdrucker" },
+      kupferstecher: { color: "#4F81BD", label: "Kupferstecher" },
+      tannenborkenkaefer: { color: "#FF3399", label: "Krummzähniger Tannenborkenkäfer" },
+    };
+    const LEGEND_TITLE = "Borkenkäfermonitoring";
+    const LEGEND_ITEMS = [
+      { color: ART_STYLE.buchdrucker.color, label: "Buchdrucker (Falle)", shape: "circle" },
+      { color: ART_STYLE.kupferstecher.color, label: "Kupferstecher (Falle)", shape: "circle" },
+      { color: ART_STYLE.tannenborkenkaefer.color, label: "Krummzähniger Tannenborkenkäfer (Falle)", shape: "circle" },
+      { color: ART_STYLE.buchdrucker.color, label: "Buchdrucker (Brutbeobachtungsbaum)", shape: "ring" },
+      { color: ART_STYLE.tannenborkenkaefer.color, label: "Tannenborkenkäfer (Brutbeobachtungsbaum)", shape: "ring" },
+    ];
+
+    // Dauerhaft sichtbarer Hinweis zur Datenqualität der Koordinaten (siehe
+    // Kommentar oben zu data/borkenkaefer_standorte.geojson) - muss ENTFERNT
+    // werden, sobald die Koordinaten durch echte FVA-Daten ersetzt sind.
+    const KOORDINATEN_HINWEIS =
+      "⚠ Standort-Koordinaten sind KI-generiert (Geocoding/Bildabgleich) und nicht von der FVA geprüft.";
+
+    // 3. Karte initialisieren --------------------------------------------------
+    const map = FVAMap.init({
+      container: "map",
+      // Kartenausschnitt kommt aus der Basemap (Standard: ganz BW).
+      ariaLabel: "Borkenkäfermonitoring – Fallenstandorte in Baden-Württemberg und Rheinland-Pfalz",
+    });
+
+    const infoNoteControl = {
+      onAdd() {
+        const el = document.createElement("div");
+        el.className = "maplibregl-ctrl fva-info-note app-ctrl";
+        el.textContent = KOORDINATEN_HINWEIS;
+        FVAMap.stopMapPropagation(el);
+        return el;
+      },
+      onRemove() {},
+    };
+    map.addControl(infoNoteControl, "bottom-left");
+
+    // 4. Hover/Lightbox/... ----------------------------------------------------
+    FVAMap.lightbox.init(map);
+    const tooltip = FVAMap.hover.tooltip(map);
+
+    // 5. Popup-Verdrahtung für Inhalte -------------------------------------------
+    map.on("load", () => {
+      // Eigenes fetch() statt data:STANDORTE_URL direkt an addSource, weil
+      // wir aus einem Standort-Feature (ein Punkt, mehrere bilder-Einträge)
+      // mehrere Kartenpunkte machen - einen pro überwachter Art/Fallentyp,
+      // wie im FVA-Original (siehe expandStandorte unten).
+      fetch(STANDORTE_URL)
+        .then((r) => r.json())
+        .then((geojson) => {
+          map.addSource("standorte", { type: "geojson", data: expandStandorte(geojson), generateId: true });
+
+          // -- Fallen: voller Punkt in Art-Farbe -----------------------------
+          map.addLayer({
+            id: "standorte-falle",
+            type: "circle",
+            source: "standorte",
+            filter: ["==", ["get", "typ"], "falle"],
+            paint: {
+              "circle-radius": FVAMap.hoverExpr(6 + 4, 6), // +4 Radius bei Hover
+              "circle-color": FVAMap.matchExpr("art", ART_STYLE, "color"),
+              "circle-opacity": 0.9,
+              "circle-stroke-color": "#FFFFFF",
+              "circle-stroke-width": FVAMap.hoverExpr(1.5 + 1.5, 1.5), // +1.5 Randstärke bei Hover
+              "circle-stroke-opacity": 1,
+            },
+          });
+
+          // -- Brutbeobachtungsbaum: weiße Mitte, Rand in Art-Farbe ----------
+          map.addLayer({
+            id: "standorte-brutbaum",
+            type: "circle",
+            source: "standorte",
+            filter: ["==", ["get", "typ"], "brutbaum"],
+            paint: {
+              "circle-radius": FVAMap.hoverExpr(6 + 4, 6),
+              "circle-color": "#FFFFFF",
+              "circle-opacity": 1,
+              "circle-stroke-color": FVAMap.matchExpr("art", ART_STYLE, "color"),
+              "circle-stroke-width": FVAMap.hoverExpr(3 + 1.5, 3), // +1.5 Randstärke bei Hover
+            },
+          });
+
+          ["standorte-falle", "standorte-brutbaum"].forEach((layerId) => {
+            FVAMap.hover.enable(map, layerId, "standorte");
+
+            // -- Hover-Tooltip (Name + Höhenlage) ---------------------------
+            map.on("mousemove", layerId, (e) => {
+              const p = e.features[0].properties;
+              tooltip.show(`<div class="fva-tooltip__title">${p.label}</div><div>${p.hoehe}</div>`, e.point, {
+                html: true,
+              });
+            });
+            map.on("mouseleave", layerId, () => tooltip.hide());
+
+            // -- Klick-Popup -------------------------------------------------
+            // Alle Punkte desselben Standorts tragen dieselben Standort-
+            // Properties (siehe expandStandorte) -> derselbe Klick-Handler,
+            // unabhängig davon, welcher Art-Punkt genau getroffen wurde.
+            map.on("click", layerId, (e) => {
+              openStandortPopup(map, e.features[0].properties);
+            });
+          });
+
+          // -- Legende (Standardformat, immer unten rechts) ----------------
+          FVAMap.addLegend(map, { title: LEGEND_TITLE, items: LEGEND_ITEMS });
+        });
+    });
+
+    // 6. Fachspezifische Funktionen für Popup-Inhalte ----------------------------
+
+    /** Leitet aus einem Bild-Dateinamen (siehe LABELS in der Datenaufbereitung
+     *  von data/borkenkaefer_standorte.geojson) Art + Fallentyp ab. */
+    function kategorieFromFile(file) {
+      if (file.endsWith("_brutbaum_tbk.png")) return { art: "tannenborkenkaefer", typ: "brutbaum" };
+      if (file.endsWith("_brutbaum.png")) return { art: "buchdrucker", typ: "brutbaum" };
+      if (file.endsWith("_kupferstecher.png")) return { art: "kupferstecher", typ: "falle" };
+      if (file.endsWith("_tannenborkenkaefer.png")) return { art: "tannenborkenkaefer", typ: "falle" };
+      if (file.endsWith("_buchdrucker.png")) return { art: "buchdrucker", typ: "falle" };
+      return null;
+    }
+
+    /** Baut aus den Standort-Features (ein Punkt pro Standort, mehrere
+     *  bilder-Einträge) eine erweiterte FeatureCollection mit einem
+     *  Kartenpunkt PRO überwachter Art/Fallentyp - wie im FVA-Original, das
+     *  an einem Standort mit mehreren Arten auch mehrere nebeneinander-
+     *  liegende Punkte zeigt statt eines einzelnen. Bei mehreren Punkten pro
+     *  Standort ein minimaler Versatz (~170m) im Kreis um die echte
+     *  Koordinate, damit sie sich nicht exakt überdecken; ein Standort mit
+     *  nur einer Art behält seine echte Koordinate unverändert. Alle
+     *  Punkte eines Standorts tragen dieselben Properties (label/gruppe/
+     *  hoehe/bilder/...) - das Popup zeigt immer ALLE Grafiken des
+     *  Standorts, unabhängig davon, welcher Art-Punkt angeklickt wurde. */
+    function expandStandorte(geojson) {
+      const out = [];
+      geojson.features.forEach((f) => {
+        const kategorien = [];
+        const seen = new Set();
+        (f.properties.bilder || []).forEach(([file]) => {
+          const k = kategorieFromFile(file);
+          if (!k) return;
+          const key = k.art + ":" + k.typ;
+          if (seen.has(key)) return;
+          seen.add(key);
+          kategorien.push(k);
+        });
+
+        const [lon, lat] = f.geometry.coordinates;
+        const n = kategorien.length;
+        kategorien.forEach((k, i) => {
+          const r = n > 1 ? 0.0017 : 0; // ~170m, nur bei mehreren Punkten versetzt
+          const angle = (2 * Math.PI * i) / n;
+          // Längengrad-Versatz mit cos(lat) korrigiert, sonst wäre der
+          // Kreis in Ost-West-Richtung sichtbar gestaucht (1° Länge ist bei
+          // uns ~48-50°N spürbar kürzer als 1° Breite in echten Metern).
+          const dLon = (r * Math.cos(angle)) / Math.cos((lat * Math.PI) / 180);
+          const dLat = r * Math.sin(angle);
+          out.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [lon + dLon, lat + dLat] },
+            properties: Object.assign({}, f.properties, { art: k.art, typ: k.typ }),
+          });
+        });
+      });
+      return { type: "FeatureCollection", features: out };
+    }
+
+    /** Öffnet das Popup für einen Fallenstandort: Höhenlage/Gruppe + die
+     *  Fangzahlen-/Brutentwicklungs-Grafiken der FVA. Titel + Export +
+     *  Schließen kommen von FVAMap.popup.open, kein eigener Header nötig. */
+    function openStandortPopup(map, props) {
+      // .fva-popup--fluid hebt die 520px-Breitenbegrenzung von .fva-popup
+      // auf - die FVA-Grafiken sind selbst schon ca. 820px breit (siehe
+      // widthPercent unten).
+      const body = document.createElement("div");
+      body.className = "fva-popup fva-popup--fluid fva-popup__body";
+
+      const meta = document.createElement("div");
+      meta.className = "fva-popup__row";
+      meta.style.flexDirection = "column";
+      meta.style.alignItems = "flex-start";
+      meta.innerHTML = `<span class="fva-popup__row-label">${props.gruppe}</span><span>${props.hoehe}</span>`;
+      body.appendChild(meta);
+
+      if (props.standort_hinweis) {
+        const hint = document.createElement("div");
+        hint.className = "fva-popup__hint";
+        hint.style.color = "var(--fva-danger)";
+        hint.textContent = "⚠ " + props.standort_hinweis;
+        body.appendChild(hint);
+      }
+
+      let bilder = props.bilder;
+      if (typeof bilder === "string") {
+        try { bilder = JSON.parse(bilder); }
+        catch (err) { bilder = []; }
+      }
+      if (!Array.isArray(bilder)) bilder = [];
+
+      bilder.forEach(([file, label]) => {
+        const figure = document.createElement("div");
+        figure.style.marginTop = "10px";
+
+        const caption = document.createElement("div");
+        caption.className = "fva-popup__row-label";
+        caption.textContent = label;
+        figure.appendChild(caption);
+
+        const img = document.createElement("img");
+        img.className = "fva-popup__img";
+        img.src = IMG_BASE_URL + file;
+        img.setAttribute("data-full", IMG_BASE_URL + file);
+        img.alt = `${label} – ${props.label}`;
+        img.loading = "lazy";
+        figure.appendChild(img);
+
+        body.appendChild(figure);
+      });
+
+      FVAMap.popup.open(map, body, {
+        title: props.label,
+        exportName: props.label,
+        widthPercent: 0.7,
+      });
+    }
+  </script>
+</body>
+</html>
