@@ -110,6 +110,56 @@
          würde sonst an den Ecken eckige Kachel-Reste zeigen. */
       overflow: hidden;
     }
+
+    /* -- Tab "basemap.world (BKG)" --------------------------------------- */
+    .welt-map {
+      height: 75vh;
+      max-width: 1100px;
+      border: 1px solid darkgrey;
+      border-radius: 10px;
+      overflow: hidden; /* siehe .vergleich-map oben */
+    }
+
+    /* Zoomstufen-Anzeige (siehe initWelt/zoomControl) */
+    .welt-zoom-anzeige {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: #333;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Klick-Popup mit der Layer-Liste (siehe initWelt, map.on("click", ...)) */
+    .welt-layer-popup {
+      max-height: 320px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+    .welt-layer-popup__kopf {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #006e60;
+    }
+    .welt-layer-zeile {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 3px 0;
+      border-top: 1px solid #eee;
+    }
+    .welt-layer-zeile:first-of-type {
+      border-top: none;
+    }
+    .welt-layer-quelle {
+      font-size: 10.5px;
+      color: #888;
+    }
+    .welt-layer-wert {
+      font-size: 11px;
+      color: #444;
+    }
   </style>
 </head>
 <body>
@@ -119,6 +169,7 @@
     <button type="button" class="tab-btn active" data-tab="tab-fachkarten">Fachkarten</button>
     <button type="button" class="tab-btn" data-tab="tab-vergleich">Maplibre - Leaflet</button>
     <button type="button" class="tab-btn" data-tab="tab-tiles">Basemap-Vergleich</button>
+    <button type="button" class="tab-btn" data-tab="tab-world">basemap.world (BKG)</button>
   </div>
 
   <!-- Gilt für alle Tabs, deshalb außerhalb der .tab-panel-Divs. -->
@@ -165,6 +216,24 @@
     <div class="vergleich-row" id="tiles-row"></div>
   </div>
 
+  <div id="tab-world" class="tab-panel">
+    <h1>basemap.world (BKG)</h1>
+    <p class="hinweis">
+      Der amtliche Vektor-Basisdienst des Bundesamts für Kartographie und
+      Geodäsie (BKG), hier als eigener großer Kartenausschnitt statt nur als
+      kleine Vergleichsbox (siehe Tab "Basemap-Vergleich"). Der Style
+      (<code>bm_web_wld_col.json</code>) liegt lokal in
+      <code>maplibre/base/basemap-world.json</code> - Kacheln, Sprite und
+      Schriften kommen weiterhin zur Laufzeit von
+      <code>sgx.geodatenzentrum.de</code> (im Style selbst als volle URLs
+      hinterlegt, siehe dessen <code>sources</code>/<code>sprite</code>/
+      <code>glyphs</code>), sind hier also NICHT mit gespiegelt. Ohne
+      FVA-Anpassungen (kein <code>FVAMap.init</code>), wie auch die anderen
+      Vergleichstabs - reiner Kandidaten-Test.
+    </p>
+    <div id="welt-map" class="welt-map"></div>
+  </div>
+
   <script src="maplibre/vendor/leaflet.js"></script>
   <script src="maplibre/vendor/maplibre-gl.js"></script>
   <script>
@@ -176,6 +245,7 @@
     // würden falsch/leer gerendert.
     let vergleichInitialisiert = false;
     let tilesInitialisiert = false;
+    let weltInitialisiert = false;
 
     function zeigeTab(id) {
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === id));
@@ -187,6 +257,10 @@
       if (id === "tab-tiles" && !tilesInitialisiert) {
         tilesInitialisiert = true;
         initTiles();
+      }
+      if (id === "tab-world" && !weltInitialisiert) {
+        weltInitialisiert = true;
+        initWelt();
       }
     }
 
@@ -291,6 +365,66 @@
       });
     }
 
+    /** Ein großer Kandidaten-Test für basemap.world (BKG), lokal aus
+     *  maplibre/base/basemap-world.json geladen statt live von
+     *  sgx.geodatenzentrum.de - siehe Hinweistext im Tab. */
+    function initWelt() {
+      // Identisch zu BW_BOUNDS in base/basemap.js - hier eigenständig
+      // hinterlegt statt importiert, siehe Hinweistext im Tab "Basemap-Vergleich".
+      const BW_BOUNDS = [
+        [7.45209, 47.48723],
+        [10.5553, 49.83647],
+      ];
+      const map = new maplibregl.Map({
+        container: "welt-map",
+        style: "maplibre/base/basemap-world.json",
+        bounds: BW_BOUNDS,
+      });
+
+      // -- Zoomstufen-Anzeige oben rechts (reines Debug-Hilfsmittel für
+      //    diesen Kandidaten-Tab, keine FVA-Karte) -----------------------
+      const zoomControl = {
+        onAdd() {
+          const el = document.createElement("div");
+          el.className = "maplibregl-ctrl welt-zoom-anzeige";
+          const update = () => { el.textContent = "Zoom " + map.getZoom().toFixed(2); };
+          map.on("zoom", update);
+          update();
+          this._el = el;
+          return el;
+        },
+        onRemove() {
+          this._el.remove();
+        },
+      };
+      map.addControl(zoomControl, "top-right");
+
+      // -- Klick-Popup: alle an diesem Punkt gerenderten Layer auflisten -
+      //    (map.queryRenderedFeatures OHNE layers-Filter = alle Layer, aus
+      //    smarttiles_de UND smarttiles_wld gemeinsam) - Debug-Werkzeug, um
+      //    z.B. doppelte Orts-Beschriftungen oder falsch gefärbte Layer an
+      //    einer bestimmten Stelle direkt nachzuvollziehen. ---------------
+      map.on("click", (e) => {
+        const features = map.queryRenderedFeatures(e.point);
+        const rows = features.map((f) => {
+          const bezeichner = f.properties?.name || f.properties?.class || f.properties?.klasse || "";
+          return (
+            `<div class="welt-layer-zeile">` +
+            `<strong>${f.layer.id}</strong>` +
+            `<span class="welt-layer-quelle">${f.source}${f.sourceLayer ? " / " + f.sourceLayer : ""}</span>` +
+            (bezeichner ? `<span class="welt-layer-wert">${bezeichner}</span>` : "") +
+            `</div>`
+          );
+        });
+        const html =
+          `<div class="welt-layer-popup">` +
+          `<div class="welt-layer-popup__kopf">${features.length} Layer an diesem Punkt</div>` +
+          (rows.length ? rows.join("") : "<div class=\"welt-layer-zeile\">(keine Layer getroffen)</div>") +
+          `</div>`;
+        new maplibregl.Popup({ maxWidth: "360px" }).setLngLat(e.lngLat).setHTML(html).addTo(map);
+      });
+    }
+
     // -- Fachkarten-Liste --------------------------------------------------
     // Kartenliste. height ist optional (Standard 600, passend zur Website-Einbindung).
     const MAPS = [
@@ -298,6 +432,7 @@
       { file: "karte_wrw.html",     title: "Wasserrückhalt im Wald (WRW)" },
       { file: "karte_eps.html",     title: "Eichenprozessionsspinner (EPS)" },
       { file: "karte_level2.html",  title: "Level II Bodenfeuchtemonitoring" },
+      { file: "karte_borkenkaefer.html", title: "Borkenkäfermonitoring" },
     ];
 
     const container = document.getElementById("karten");

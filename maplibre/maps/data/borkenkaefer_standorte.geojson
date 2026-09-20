@@ -1,0 +1,796 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.8559115,
+          47.9658924
+        ]
+      },
+      "properties": {
+        "label": "Günterstal",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "450 m ü.NN",
+        "bilder": [
+          [
+            "bw_guenterstal_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_guenterstal_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ],
+          [
+            "bw_guenterstal_2026_kupferstecher.png",
+            "Fangzahlen Kupferstecher"
+          ],
+          [
+            "bw_guenterstal_2026_tannenborkenkaefer.png",
+            "Fangzahlen Krummzähniger Tannenborkenkäfer"
+          ],
+          [
+            "bw_guenterstal_2026_brutbaum_tbk.png",
+            "Brutentwicklung Krummzähniger Tannenborkenkäfer"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.9392,
+          47.91525
+        ]
+      },
+      "properties": {
+        "label": "Langenbach",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "600 m ü.NN",
+        "bilder": [
+          [
+            "bw_langenbach_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ],
+        "standort_hinweis": "Koordinate grob angenähert (kein Namenstreffer, aus Nachbarstandorten interpoliert) – vor Veröffentlichung prüfen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.0224874,
+          47.8646075
+        ]
+      },
+      "properties": {
+        "label": "Mittelstation",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "815 m ü.NN",
+        "bilder": [
+          [
+            "bw_mittelstation_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.8796491,
+          47.9150546
+        ]
+      },
+      "properties": {
+        "label": "Holzschlägermatte",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "960 m ü.NN",
+        "bilder": [
+          [
+            "bw_holzschlaegermatte_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_holzschlaegermatte_2026_kupferstecher.png",
+            "Fangzahlen Kupferstecher"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.0307554,
+          47.8637819
+        ]
+      },
+      "properties": {
+        "label": "Absprungplatz",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "1150 m ü.NN",
+        "bilder": [
+          [
+            "bw_absprungplatz_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.9715665,
+          47.8674017
+        ]
+      },
+      "properties": {
+        "label": "Stübenwasen",
+        "gruppe": "FBEZ Hochschwarzwald (Höhengradient Freiburg–Feldberg)",
+        "hoehe": "1370 m ü.NN",
+        "bilder": [
+          [
+            "bw_stuebenwasen_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_stuebenwasen_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ],
+          [
+            "bw_stuebenwasen_2026_kupferstecher.png",
+            "Fangzahlen Kupferstecher"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.965,
+          49.3532
+        ]
+      },
+      "properties": {
+        "label": "Elsenztal",
+        "gruppe": "FBEZ Odenwald",
+        "hoehe": "350 m ü.NN",
+        "bilder": [
+          [
+            "bw_elsenztal_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_elsenztal_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.814,
+          49.5083
+        ]
+      },
+      "properties": {
+        "label": "Adlerstein",
+        "gruppe": "FBEZ Odenwald",
+        "hoehe": "450 m ü.NN",
+        "bilder": [
+          [
+            "bw_adlerstein_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.20958,
+          49.49934
+        ]
+      },
+      "properties": {
+        "label": "Grauer Forst",
+        "gruppe": "FBEZ Odenwald",
+        "hoehe": "525 m ü.NN",
+        "bilder": [
+          [
+            "bw_grauer_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.93796,
+          48.99681
+        ]
+      },
+      "properties": {
+        "label": "Geifertshofen",
+        "gruppe": "FBEZ Virngrund",
+        "hoehe": "495 m ü.NN",
+        "bilder": [
+          [
+            "bw_geifertshofen_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_geifertshofen_2026_tannenborkenkaefer.png",
+            "Fangzahlen Krummzähniger Tannenborkenkäfer"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.29589,
+          49.0368
+        ]
+      },
+      "properties": {
+        "label": "Ellwanger Berge",
+        "gruppe": "FBEZ Virngrund",
+        "hoehe": "535 m ü.NN",
+        "bilder": [
+          [
+            "bw_ellwanger_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_ellwanger_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.35635,
+          48.851
+        ]
+      },
+      "properties": {
+        "label": "Stubental",
+        "gruppe": "FBEZ Östliche Alb",
+        "hoehe": "580 m ü.NN",
+        "bilder": [
+          [
+            "bw_stubental_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.35635,
+          48.851
+        ]
+      },
+      "properties": {
+        "label": "Wental",
+        "gruppe": "FBEZ Östliche Alb",
+        "hoehe": "640 m ü.NN",
+        "bilder": [
+          [
+            "bw_wental_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_wental_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.14705,
+          48.74635
+        ]
+      },
+      "properties": {
+        "label": "Kapfenburg",
+        "gruppe": "FBEZ Östliche Alb",
+        "hoehe": "680 m ü.NN",
+        "bilder": [
+          [
+            "bw_kapfenburg_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.51817,
+          48.49908
+        ]
+      },
+      "properties": {
+        "label": "Herzogsweiler",
+        "gruppe": "FBEZ Mittlerer Schwarzwald",
+        "hoehe": "650 m ü.NN",
+        "bilder": [
+          [
+            "bw_herzogsweiler_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_herzogsweiler_2026_kupferstecher.png",
+            "Fangzahlen Kupferstecher"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.41822,
+          48.40433
+        ]
+      },
+      "properties": {
+        "label": "Glaswald",
+        "gruppe": "FBEZ Mittlerer Schwarzwald",
+        "hoehe": "800 m ü.NN",
+        "bilder": [
+          [
+            "bw_glaswald_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.19376,
+          48.54698
+        ]
+      },
+      "properties": {
+        "label": "Gefällter Kopf",
+        "gruppe": "Nationalpark Schwarzwald",
+        "hoehe": "860 m ü.NN",
+        "bilder": [
+          [
+            "bw_gefaellter_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_gefaellter_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.26082,
+          48.64842
+        ]
+      },
+      "properties": {
+        "label": "Ochsenkopf",
+        "gruppe": "Nationalpark Schwarzwald",
+        "hoehe": "725-881 m ü.NN",
+        "bilder": [
+          [
+            "bw_ochsenkopf_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.27808,
+          48.58777
+        ]
+      },
+      "properties": {
+        "label": "Langenbachhalde",
+        "gruppe": "Nationalpark Schwarzwald",
+        "hoehe": "669-796 m ü.NN",
+        "bilder": [
+          [
+            "bw_langenbachhalde_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.33028,
+          48.55151
+        ]
+      },
+      "properties": {
+        "label": "Schliffkopf",
+        "gruppe": "Nationalpark Schwarzwald",
+        "hoehe": "810-933 m ü.NN",
+        "bilder": [
+          [
+            "bw_schliffkopf_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.30453,
+          48.4943
+        ]
+      },
+      "properties": {
+        "label": "Ellbach/Hechliskopf",
+        "gruppe": "Nationalpark Schwarzwald",
+        "hoehe": "744-903 m ü.NN",
+        "bilder": [
+          [
+            "bw_hechliskopf_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.4117,
+          48.2085
+        ]
+      },
+      "properties": {
+        "label": "Sperberseck",
+        "gruppe": "FBEZ Mittlere Alb",
+        "hoehe": "710 m ü.NN",
+        "bilder": [
+          [
+            "bw_sperberseck_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.6661,
+          48.4588
+        ]
+      },
+      "properties": {
+        "label": "Buchwald",
+        "gruppe": "FBEZ Mittlere Alb",
+        "hoehe": "740 m ü.NN",
+        "bilder": [
+          [
+            "bw_buchwald_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "bw_buchwald_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.7802,
+          47.81652
+        ]
+      },
+      "properties": {
+        "label": "Baindt",
+        "gruppe": "FBEZ Altdorfer Wald",
+        "hoehe": "575 m ü.NN",
+        "bilder": [
+          [
+            "bw_baindt_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.8469,
+          47.74983
+        ]
+      },
+      "properties": {
+        "label": "Vogt",
+        "gruppe": "FBEZ Altdorfer Wald",
+        "hoehe": "690 m ü.NN",
+        "bilder": [
+          [
+            "bw_vogt_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.23003,
+          47.80258
+        ]
+      },
+      "properties": {
+        "label": "Rothaus",
+        "gruppe": "FBEZ Südschwarzwald",
+        "hoehe": "1045 m ü.NN",
+        "bilder": [
+          [
+            "bw_rothaus_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.94113,
+          49.43865
+        ]
+      },
+      "properties": {
+        "label": "Hochspeyer",
+        "gruppe": "Pfälzerwald",
+        "hoehe": "370 m ü.NN",
+        "bilder": [
+          [
+            "rlp_hochspeyer_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "rlp_hochspeyer_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.86363,
+          49.33977
+        ]
+      },
+      "properties": {
+        "label": "Merzalben",
+        "gruppe": "Pfälzerwald",
+        "hoehe": "515 m ü.NN",
+        "bilder": [
+          [
+            "rlp_merzalben_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "rlp_merzalben_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.34703,
+          49.84475
+        ]
+      },
+      "properties": {
+        "label": "Niederwörresbach",
+        "gruppe": "Hunsrück",
+        "hoehe": "390 m ü.NN",
+        "bilder": [
+          [
+            "rlp_niederwoerresbach_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "rlp_niederwoerresbach_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.00819,
+          49.68195
+        ]
+      },
+      "properties": {
+        "label": "Nonnweiler-Eisen",
+        "gruppe": "Hunsrück",
+        "hoehe": "615 m ü.NN",
+        "bilder": [
+          [
+            "rlp_nonnweiler_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "rlp_nonnweiler_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.16054,
+          49.76847
+        ]
+      },
+      "properties": {
+        "label": "Leisel",
+        "gruppe": "Hunsrück",
+        "hoehe": "650 m ü.NN",
+        "bilder": [
+          [
+            "rlp_leisel_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ],
+          [
+            "rlp_leisel_2026_brutbaum.png",
+            "Brutentwicklung Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.52114,
+          50.26076
+        ]
+      },
+      "properties": {
+        "label": "Schönecker Schweiz",
+        "gruppe": "Eifel",
+        "hoehe": "450 m ü.NN",
+        "bilder": [
+          [
+            "rlp_schoenecker_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.4526,
+          50.35721
+        ]
+      },
+      "properties": {
+        "label": "Kesselsvenn",
+        "gruppe": "Eifel",
+        "hoehe": "600 m ü.NN",
+        "bilder": [
+          [
+            "rlp_kesselsvenn_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.39592,
+          50.36469
+        ]
+      },
+      "properties": {
+        "label": "Wascheid",
+        "gruppe": "Eifel",
+        "hoehe": "690 m ü.NN",
+        "bilder": [
+          [
+            "rlp_wascheid_2026_buchdrucker.png",
+            "Fangzahlen Buchdrucker"
+          ]
+        ]
+      }
+    }
+  ]
+}

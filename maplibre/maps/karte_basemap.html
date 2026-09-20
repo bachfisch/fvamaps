@@ -14,15 +14,34 @@
   <script src="../vendor/maplibre-gl.js"></script>
   <script src="../base/basemap.js"></script>
   <script>
-    // Reine Grundkarte – keine fachspezifischen Layer/Popups.
-    // Dient als Referenz/Testfall für die gemeinsame Basemap sowie als
-    // Ausgangspunkt beim Anlegen einer neuen karte_*.html.
-    FVAMap.create({
+    /**
+     * Referenzkarte – reine Grundkarte ohne fachspezifische Layer/Popups.
+     * Ausgangspunkt beim Anlegen einer neuen karte_*.html: kopieren, die
+     * sechs Abschnitte unten mit fachspezifischem Inhalt füllen.
+     */
+
+    // 1. Filepaths ---------------------------------------------------------
+    // (keine Datenquelle – reine Referenzkarte)
+
+    // 2. Legende -------------------------------------------------------------
+    // (keine – reine Referenzkarte)
+
+    // 3. Karte initialisieren -------------------------------------------------
+    const map = FVAMap.init({
       container: "map",
       ariaLabel: "Referenzkarte Baden-Württemberg ohne Fachdaten",
       // Kartenausschnitt (ganz BW) kommt aus der Basemap – hier nichts setzen.
       // Nur echte Ausnahmen geben stattdessen center/zoom an.
     });
+
+    // 4. Hover/Lightbox/... ----------------------------------------------------
+    // (keine Layer – nichts zu initialisieren)
+
+    // 5. Popup-Verdrahtung für Inhalte ------------------------------------------
+    // (keine Layer, kein Klick-Popup)
+
+    // 6. Fachspezifische Funktionen für Popup-Inhalte ---------------------------
+    // (keine)
   </script>
 </body>
 </html>
